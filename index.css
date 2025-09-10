@@ -6,12 +6,10 @@ body {
     padding: 0;
     margin: 5rem 0 0 0 ;
     overflow-x: hidden;
-    margin-top: 0 !important;
     background-color: #FFF;
-    height: 3000px;
+    height: 100%;
     font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
     font-weight: var(--weight-regular, 400);
-    overflow-x: hidden !important;
 }
 
 section {
@@ -236,18 +234,4 @@ experiences-gallery {
 .exp-header::before, .exp-header::after,
 .reviews-header::before, .reviews-header::after {
   pointer-events: none;
-}
-
-.videowrapper {
-  display: flex;
-  width: 100%;
-  height: 500px;
-}
-
-.videointro {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;   /* Ritaglia e riempie mantenendo il rapporto */
-  object-position: center; /* Centra il contenuto */
-  aspect-ratio: 9/16;
 }
