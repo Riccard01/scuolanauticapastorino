@@ -2,19 +2,19 @@
 // Carosello + overlay dettaglio (trigger da bottone ds-select)
 // - Titolo stile Apple (come indicato)
 // - UNICO elemento animato: la CARD clonata (testi restano dentro la card)
-//   -> target visuale: 100vw x 60vh (scalata con FLIP), centrata orizzontalmente e top:0
-// - Sheet height: 100vw, parte SUBITO (stesso frame) dell’espansione immagine
-// - Quando aperto: blocca lo scroll della pagina; overlay scrollabile (anche “partendo dall’immagine”)
-// - Mobile centering robusto (offsetWidth + snap al più vicino)
-// - Salva posizione esatta (rect + scroll pagina + scroll carosello) e la ripristina alla chiusura
+//   -> target visuale: 100vw x 60vh (FLIP), ancorata top:0 e full-width
+// - Panel in Flexbox: [card (hero 60vh con card clonata assoluta)] + [container/tendina che clippa i testi]
+// - Tendina parte nello stesso frame dell’espansione; in chiusura risale prima (maschera i testi), poi la card rientra
+// - Overlay = unico scroll; pagina sotto bloccata
+// - Carosello: snap fluido come prima (scroll-snap-stop: normal; niente forcing JS)
+// - Salva e ripristina posizione esatta (rect + scroll pagina + scroll carosello)
 (() => {
   if (customElements.get('experiences-gallery')) return;
 
-  const ENTER_DUR = 280;
-  const STAGGER   = 60;
+  const ENTER_DUR  = 280;
+  const STAGGER    = 60;
   const HERO_RATIO = 0.60; // 60% viewport height
-  const OPEN_DUR  = 260;   // animazione rapida
-  const SHEET_LAG = 0;     // sheet nello stesso frame
+  const OPEN_DUR   = 260;  // ease-in-out
 
   class ExperiencesGallery extends HTMLElement {
     constructor() {
@@ -22,16 +22,14 @@
       this.attachShadow({ mode: 'open' });
 
       this._onScroll = this._onScroll.bind(this);
-      this._onScrollEnd = this._onScrollEnd.bind(this);
       this._raf = null;
-      this._endTimer = null;
 
       this._typeSpeed = 10;
       this._twTimer = null;
 
       this._restore = null; // per ripristino posizione
 
-      // Dati demo (arricchiti per la sheet)
+      // Dati (sheet completa)
       this._data = [
         {
           id:'rainbow',
@@ -39,64 +37,38 @@
           price:'€100/persona',
           img:'./assets/images/barca4.jpg',
           desc:'Elegante e stabile, con i suoi due alberi garantisce manovre più facili e bilanciate: la barca ideale per chi vuole imparare a gestire la vela con sicurezza e stile.',
-          program: [
-            '09:30 – Briefing di sicurezza e divisione ruoli',
-            '10:00 – Uscita e manovre base (virate/abbattute)',
-            '11:15 – Veleggiata costiera e prove di timone',
-            '12:30 – Rientro in porto e debrief'
-          ],
-          meeting: 'Molo 3, Marina di San Luca',
-          tips: [
-            'Restate leggeri: zaino compatto.',
-            'Portate acqua (almeno 1L a persona).',
-            'Cappello e crema solare consigliati.'
-          ],
-          cancel: 'Cancellazione gratuita fino a 48 ore prima. In caso di meteo avverso rimborso o riprogrammazione.'
+          program:['09:30 – Briefing','10:00 – Manovre base','11:15 – Veleggiata','12:30 – Debrief'],
+          meeting:'Molo 3, Marina di San Luca',
+          tips:['Restate leggeri','Portate acqua (1L)','Cappello e crema SPF'],
+          cancel:'Cancellazione gratuita fino a 48 ore prima.'
         },
         {
           id:'gourmet',
           title:'Schooner',
           price:'€100/persona',
           img:'./assets/images/barca2.jpg',
-          desc:'Affascinante e intramontabile, con le sue vele imponenti richiama le grandi avventure d’altura: perfetta per vivere l’emozione della tradizione marinara.',
-          program: [
-            '14:00 – Presentazioni e safety',
-            '14:30 – Uscita, regolazioni vele',
-            '15:30 – Ancoraggio e pausa bagno',
-            '17:45 – Rientro'
-          ],
-          meeting: 'Capitaneria, pontile visitatori',
-          tips: [
-            'Occhiali da sole e telo mare.',
-            'Scarpe con suola chiara.',
-            'Acqua + snack leggero.'
-          ],
-          cancel: 'Cancellazione flessibile fino a 24 ore prima. In caso di mare mosso, cambio data.'
+          desc:'Affascinante e intramontabile, richiama le grandi avventure d’altura.',
+          program:['14:00 – Safety','14:30 – Regolazioni','15:30 – Pausa bagno','17:45 – Rientro'],
+          meeting:'Capitaneria, pontile visitatori',
+          tips:['Occhiali da sole','Scarpe suola chiara','Snack leggero'],
+          cancel:'Flessibile fino a 24 ore prima.'
         },
         {
           id:'stella',
           title:'Sloop',
           price:'€100/persona',
           img:'./assets/images/barca3.jpg',
-          desc:'Agile e veloce, con un solo albero e manovre semplici è la barca scuola per eccellenza: immediata da comprendere e divertente da condurre fin dal primo bordo.',
-          program: [
-            '10:00 – Cenni di teoria in banchina',
-            '10:30 – Uscita ed esercizi al lasco',
-            '11:45 – Giro boe e rientro'
-          ],
-          meeting: 'Banchina nord, vela club',
-          tips: [
-            'Giacca antivento leggera.',
-            'Borraccia ricaricabile.',
-            'Custodia waterproof per il telefono.'
-          ],
-          cancel: 'Rimborso totale fino a 72 ore; poi penale 50% (salvo maltempo).'
+          desc:'Agile e veloce, barca scuola per eccellenza.',
+          program:['10:00 – Teoria','10:30 – Esercizi','11:45 – Giro boe'],
+          meeting:'Banchina nord, vela club',
+          tips:['Giacca antivento','Borraccia','Custodia waterproof'],
+          cancel:'Rimborso totale fino a 72 ore.'
         }
       ];
 
       this.shadowRoot.innerHTML = `
         <style>
-          :host {
+          :host{
             --falloff: 260px;
             --scale-min: 0.94;
             --scale-max: 1.04;
@@ -114,52 +86,53 @@
             --c-surface: #0b1020;
             --radius-xl: 20px;
 
-            display:block; width:100%; box-sizing:border-box;
+            display:block; width:100%;
+            box-sizing:border-box;
             font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
             color: var(--c-fg);
           }
 
-          .container{ width:100%; }
-          @media (min-width:900px){ .container{ max-width:1100px; margin-inline:auto; } }
+          .page-container{ width:100%; }
+          @media (min-width:900px){ .page-container{ max-width:1100px; margin-inline:auto; } }
 
           .head{ margin-top:8px; margin-bottom:4px; margin-left:1rem; }
 
-          /* Titolo "La nostra flotta" – stile Apple indicato */
+          /* Titolo Apple-like richiesto */
           .headline{
-            font-size: 1.3rem;
-            font-weight: 700;
-            line-height: 1.2;
-            margin: 0 0 1rem 0;
-            color: #0f172a;
-            text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            font-size:1.3rem; font-weight:700; line-height:1.2; margin:0 0 1rem 0;
+            color:#0f172a; text-shadow:0 2px 6px rgba(0,0,0,.25);
           }
           .headline #tw{ display:inline-block; white-space:nowrap; }
 
-          .subhead{
-            color: #475569;
-            margin:0;
-            font-size:clamp(.95rem, .8vw + .7rem, 1.05rem);
-            line-height:1.45; text-align:left;
-          }
+          .subhead{ color:#475569; margin:0; font-size:clamp(.95rem, .8vw + .7rem, 1.05rem); line-height:1.45; }
 
           .wrap{ position:relative; }
 
+          /* === Carosello full-bleed senza spazio extra ai lati === */
+          /* Portiamo scroller a 100vw e lo centriamo rispetto alla pagina */
+          .wrap,
+          .scroller{
+            width:100vw;
+            margin-left:calc(50% - 50vw); /* full-bleed */
+          }
+
           .scroller{
             display:flex; gap:var(--gap);
-            padding: var(--pad-top) 0 var(--pad-bottom) 0;
+            padding: var(--pad-top) 0 var(--pad-bottom) 0; /* solo verticale */
             overflow-x:auto; overflow-y:hidden;
             -webkit-overflow-scrolling:touch;
             scroll-snap-type:x mandatory;
-            scroll-snap-stop:always;
+            scroll-padding-inline:0;      /* nessun padding che crei margini */
+            touch-action: pan-x;          /* mobile: abilita swipe orizzontale */
+            overscroll-behavior-x: contain;
           }
           .scroller::-webkit-scrollbar{ display:none; }
-          .scroller > *{ flex:0 0 auto; scroll-snap-align:center; }
+          .scroller > *{ flex:0 0 auto; scroll-snap-align:center; scroll-snap-stop: normal; }
 
-          .spacer{ flex:0 0 12px; pointer-events:none; }
 
           .scroller > :not(.spacer){
             transform:scale(var(--_scale,1));
-            opacity:var(--_opacity,1);
+            opacity:var(--_opacity,1));
             transition:transform 0s, opacity 0s;
             will-change: transform, opacity;
           }
@@ -168,12 +141,7 @@
             position:absolute; left:0; right:0; bottom:32px;
             display:flex; justify-content:center; gap:8px; pointer-events:none;
           }
-          .dot{
-            width:6px; height:6px; border-radius:999px;
-            background: rgba(255,255,255,.28); opacity:.95;
-            transform:scale(1);
-            transition: transform .18s ease, background-color .18s ease, opacity .18s;
-          }
+          .dot{ width:6px; height:6px; border-radius:999px; background:rgba(255,255,255,.28); opacity:.95; transform:scale(1); transition:transform .18s, background-color .18s, opacity .18s; }
           .dot[aria-current="true"]{ background:#fff; transform:scale(1.25); }
 
           @media (min-width:501px){ .scroller{ padding-top: var(--pad-top-desktop); } }
@@ -182,109 +150,115 @@
           .card-enter{ animation: card-in ${ENTER_DUR}ms cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--stagger-idx,0) * ${STAGGER}ms); }
           @media (prefers-reduced-motion: reduce){ .card-enter{ animation:none !important; } }
 
-          /* ---------- Overlay/panel ---------- */
+          /* ---------- Overlay ---------- */
           .overlay{
             position:fixed; inset:0; z-index:9999;
             background: rgba(0,0,0,0);
             transition: background .18s ease;
-            overflow:auto; /* unico scroll per tutta la sezione */
+            overflow:auto;                /* unico scroll */
             -webkit-overflow-scrolling: touch;
           }
           .overlay.open{ background: var(--c-scrim); }
 
-          /* Contenitore unico che ospita card (hero) + sheet */
+          /* === PANEL (struttura richiesta) === */
           .panel{
-            position:relative;
-            min-height: 100vh;
+            display:flex; width:100%;
+            flex-direction:column;
+            height:fit-content;
+            justify-content:center;
+            align-items:center;
+            gap:0;
           }
 
-          /* Card clonata che si espande (UNICA immagine + testi dentro) */
+          /* area hero (60vh) che ospita la card clonata assoluta */
+          .panel .card{
+            position:relative;
+            display:flex; width:100%;
+            height:calc(${HERO_RATIO * 100}vh);
+            align-items:stretch; justify-content:stretch;
+            background: transparent; /* manteniamo il tuo design */
+          }
+
           .float-card{
-            position:absolute;
+            position:absolute; left:0; top:0;
             transform-origin: top left;
             z-index:10001;
             pointer-events:auto;
-            border-radius: var(--radius-xl); /* iniziale = card */
-            transition: transform ${OPEN_DUR}ms cubic-bezier(.2,.7,.2,1), border-radius ${OPEN_DUR}ms ease;
+            border-radius: var(--radius-xl);
+            transition: transform ${OPEN_DUR}ms ease-in-out, border-radius ${OPEN_DUR}ms ease-in-out;
           }
 
-          /* Sheet attaccata all'immagine, senza gap */
-          .sheet{
-            position:absolute;
-            left:0; top: calc(${HERO_RATIO} * 100vh); /* 60vh esatti -> attaccata */
-            width:100vw; height:0;
+          /* Tendina contenuti che clippa i testi */
+          .panel .container{
+            position:relative;
+            display:flex; width:100%;
+            height:0;                 /* chiusa */
+            overflow:hidden;          /* maschera i testi */
             background: var(--c-surface);
             border-top-left-radius: var(--radius-xl);
             border-top-right-radius: var(--radius-xl);
-            transition: height ${OPEN_DUR}ms cubic-bezier(.2,.7,.2,1), border-radius ${OPEN_DUR}ms ease;
-            will-change: height, border-radius;
-            z-index:10000;
-            overflow:visible; /* nessuno scroll interno */
-            display:flex;              /* richiesto */
-            align-items:center;        /* richiesto */
-            justify-content:center;    /* per centrare orizzontalmente il contenuto */
+            transition: height ${OPEN_DUR}ms ease-in-out, border-radius ${OPEN_DUR}ms ease-in-out;
           }
-          .sheet.open{
-            height:100vw;
-            border-top-left-radius: 0;
-            border-top-right-radius: 0;
+          .panel .container.open{
+            height: var(--sheet-h, 0px); /* viene impostato via JS al contenuto */
+            border-top-left-radius:0;
+            border-top-right-radius:0;
           }
 
-          /* Contenuto centrato, fit-content e margini interni 1.5rem (senza creare gap sopra) */
+          /* Contenuto centrato, fit-content, con padding */
           .content{
             width: fit-content;
             max-width: min(100%, 1100px);
             padding: 0 18px 64px;
+            margin-inline:auto;
             color:#e5e7eb;
+            display:flex; flex-direction:column; align-items:center;
           }
-          .content > *{ margin-block: 1.5rem; }
-          .content > *:first-child{ margin-top: 0; } /* niente gap con l’immagine */
+          .content > *{ margin-block:1.5rem; }
+          .content > *:first-child{ margin-top:1.25rem; }
 
-          .title{ font-weight:800; font-size: clamp(1.25rem, 1.2vw + 1rem, 1.8rem); color:#fff; }
+          .title{ font-weight:800; font-size:clamp(1.25rem, 1.2vw + 1rem, 1.8rem); color:#fff; }
           .price{ color:#93c5fd; font-weight:700; }
           .desc{ color:#cbd5e1; line-height:1.55; }
 
           .h3{ font-weight:800; font-size:1.05rem; color:#fff; }
-          ul{ padding-left: 1.1rem; margin:0; }
-          li{ margin: 6px 0; }
+          ul{ padding-left:1.1rem; margin:0; }
+          li{ margin:6px 0; }
           .meta{ color:#a5b4fc; }
 
           .close{
-            position: fixed; right: 14px; top: 14px; z-index: 10002;
-            width: 36px; height:36px; border-radius: 999px;
+            position:fixed; right:14px; top:14px; z-index:10002;
+            width:36px; height:36px; border-radius:999px;
             display:grid; place-items:center;
-            background: rgba(0,0,0,.55); color:white; border:1px solid rgba(255,255,255,.25);
+            background:rgba(0,0,0,.55); color:white; border:1px solid rgba(255,255,255,.25);
             backdrop-filter: blur(6px);
             cursor:pointer;
           }
         </style>
 
-        <div class="container">
+        <div class="page-container">
           <div class="head">
             <h2 class="headline" id="headline" aria-live="polite" aria-atomic="true"><span id="tw"></span></h2>
             <p class="subhead">Esplora la flotta e scegli l’imbarcazione ideale per il tuo weekend didattico.</p>
           </div>
 
-        <div class="wrap">
-          <div class="scroller" id="scroller">
-            <div class="spacer" aria-hidden="true"></div>
-            <!-- cards create dinamicamente -->
-            <div class="spacer" aria-hidden="true"></div>
+          <div class="wrap">
+            <div class="scroller" id="scroller">
+              <div class="spacer" aria-hidden="true"></div>
+              <!-- cards create dinamicamente -->
+              <div class="spacer" aria-hidden="true"></div>
+            </div>
+            <div class="dots" id="dots" aria-hidden="true"></div>
           </div>
-          <div class="dots" id="dots" aria-hidden="true"></div>
         </div>
-      </div>
       `;
     }
 
-    connectedCallback() {
+    connectedCallback(){
       this._renderList();
 
       const scroller = this.shadowRoot.getElementById('scroller');
-      scroller.addEventListener('scroll', this._onScroll, { passive: true });
-      ['scrollend','touchend','mouseup'].forEach(ev =>
-        scroller.addEventListener(ev, this._onScrollEnd, { passive:true })
-      );
+      scroller.addEventListener('scroll', this._onScroll, { passive:true });
 
       this._ro = new ResizeObserver(() => this._updateSpacers(true));
       this._ro.observe(scroller);
@@ -311,9 +285,6 @@
     disconnectedCallback(){
       const scroller = this.shadowRoot.getElementById('scroller');
       scroller?.removeEventListener('scroll', this._onScroll);
-      scroller?.removeEventListener('scrollend', this._onScrollEnd);
-      scroller?.removeEventListener('touchend', this._onScrollEnd);
-      scroller?.removeEventListener('mouseup', this._onScrollEnd);
       this._ro?.disconnect();
       if (this._raf) cancelAnimationFrame(this._raf);
       if (this._twTimer){ clearTimeout(this._twTimer); this._twTimer = null; }
@@ -375,39 +346,13 @@
       requestAnimationFrame(() => step(0));
     }
 
-    /* ---------- Scroll FX + centering ---------- */
-    _onScroll(){
-      if (this._endTimer) clearTimeout(this._endTimer);
-      this._endTimer = setTimeout(this._onScrollEnd, 120);
-      this._queueUpdate();
-    }
+    /* ---------- Scroll FX ---------- */
+    _onScroll(){ this._queueUpdate(); }
     _queueUpdate(){
       if (this._raf) return;
-      this._raf = requestAnimationFrame(() => {
-        this._raf = null;
-        this._updateSpacers();
-        this._updateVisuals();
-      });
+      this._raf = requestAnimationFrame(() => { this._raf=null; this._updateSpacers(); this._updateVisuals(); });
     }
 
-    _updateSpacers(force=false){
-      const scroller = this.shadowRoot.getElementById('scroller');
-      const items = Array.from(scroller.children).filter(el => el.tagName && el.tagName.includes('-'));
-      if (!items.length) return;
-
-      const hostW = scroller.clientWidth;
-      const firstW = items[0].offsetWidth;
-      const lastW  = items[items.length - 1].offsetWidth;
-
-      const leftNeeded  = Math.max(12, (hostW - firstW) / 2);
-      const rightNeeded = Math.max(12, (hostW - lastW)  / 2);
-
-      const spacers = Array.from(scroller.querySelectorAll('.spacer'));
-      if (spacers[0]) spacers[0].style.flexBasis = `${Math.round(leftNeeded)}px`;
-      if (spacers[1]) spacers[1].style.flexBasis = `${Math.round(rightNeeded)}px`;
-
-      if (force) this._onScrollEnd();
-    }
 
     _updateVisuals(){
       const scroller = this.shadowRoot.getElementById('scroller');
@@ -445,26 +390,6 @@
       }
     }
 
-    _onScrollEnd = () => {
-      const scroller = this.shadowRoot.getElementById('scroller');
-      const items = Array.from(scroller.children).filter(el => el.tagName && el.tagName.includes('-'));
-      if (!items.length) return;
-
-      const hostCenter = scroller.clientWidth / 2;
-      let best = null, bestDist = Infinity, bestLeft = 0;
-
-      items.forEach(el => {
-        const left = el.offsetLeft + el.offsetWidth/2 - hostCenter;
-        const dist = Math.abs(left - scroller.scrollLeft);
-        if (dist < bestDist){ bestDist = dist; best = el; bestLeft = left; }
-      });
-
-      const target = Math.max(0, Math.min(bestLeft, scroller.scrollWidth - scroller.clientWidth));
-      if (Math.abs(scroller.scrollLeft - target) > 6){
-        scroller.scrollTo({ left: target, behavior:'smooth' });
-      }
-    }
-
     /* ---------- Dots ---------- */
     _renderDots(count){
       const dots = this.shadowRoot.getElementById('dots');
@@ -487,7 +412,7 @@
       });
     }
 
-    /* ---------- Overlay: panel con card clonata + sheet ---------- */
+    /* ---------- Overlay: panel con card (hero) + container (tendina) ---------- */
     _openDetail(item, cardEl, scroller){
       const rect = cardEl.getBoundingClientRect();
 
@@ -499,13 +424,16 @@
         rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
       };
 
-      // Overlay + Panel
+      // Overlay + Panel (struttura richiesta)
       const ov = document.createElement('div');
       ov.className = 'overlay';
       ov.innerHTML = `
         <button class="close" aria-label="Chiudi">✕</button>
         <div class="panel">
-          <div class="sheet">
+          <div class="card">
+            <span class="sr-only">immagine qui</span>
+          </div>
+          <div class="container">
             <div class="content" role="dialog" aria-modal="true" aria-label="${item.title}">
               ${item.price ? `<p class="price">${item.price}</p>` : ''}
               <h3 class="title">${item.title || ''}</h3>
@@ -536,48 +464,53 @@
       `;
       this.shadowRoot.appendChild(ov);
 
-      const panel = ov.querySelector('.panel');
-      const sheet = ov.querySelector('.sheet');
+      const heroArea = ov.querySelector('.panel .card');
+      const sheet = ov.querySelector('.panel .container');
+      const content = ov.querySelector('.content');
 
-      // Card clonata dentro il panel (figlia del contenitore unico)
+      // Card clonata (assoluta sopra all'area hero)
       const clone = cardEl.cloneNode(true);
       clone.classList.add('float-card');
-      // disattiva interattività interna durante overlay
       clone.querySelectorAll('ds-button').forEach(b => b.setAttribute('disabled',''));
-      panel.appendChild(clone);
+      heroArea.appendChild(clone);
 
-      // Blocca scroll pagina sotto
+      // Blocca completamente la pagina sotto
       this._lockPageScroll(true);
 
-      // Stato iniziale = posizione esatta sullo schermo (senza animare)
+      // Stato iniziale = posizione attuale sullo schermo
       clone.style.transition = 'none';
       clone.style.transform = `translate(${rect.left}px, ${rect.top}px) scale(1)`;
       const startRadius = getComputedStyle(cardEl).borderRadius || '16px';
       clone.style.borderRadius = startRadius;
-      // forza reflow per fissare lo stato iniziale
-      clone.getBoundingClientRect();
+      clone.getBoundingClientRect(); // reflow
 
-      // Target: 100vw x 60vh, centrato orizzontalmente e top 0 (spostamento + scala)
-      const targetW = window.innerWidth;
+      // Target: 100vw x 60vh, ancorata in alto e a sinistra
+      const viewportW = document.documentElement.clientWidth;
+      const targetW = viewportW;
       const targetH = Math.round(window.innerHeight * HERO_RATIO);
       const scaleX  = targetW / rect.width;
       const scaleY  = targetH / rect.height;
-      const finalX  = (targetW - rect.width * scaleX) / 2; // centrato orizzontalmente
-      const finalY  = 0;                                   // top: 0
+      const finalX  = 0;
+      const finalY  = 0;
 
-      // Attiva transizione e avvia animazioni nello stesso frame
+      // Prepara altezza tendina = altezza contenuto (animiamo via CSS var)
+      requestAnimationFrame(() => {
+        const h = content.scrollHeight + 64; // include padding bottom
+        sheet.style.setProperty('--sheet-h', `${h}px`);
+      });
+
+      // Avvia animazione immagine + tendina (stesso frame)
       requestAnimationFrame(() => {
         ov.classList.add('open');
 
-        clone.style.transition = `transform ${OPEN_DUR}ms cubic-bezier(.2,.7,.2,1), border-radius ${OPEN_DUR}ms ease`;
+        clone.style.transition = `transform ${OPEN_DUR}ms ease-in-out, border-radius ${OPEN_DUR}ms ease-in-out`;
         clone.style.transform  = `translate(${finalX}px, ${finalY}px) scale(${scaleX}, ${scaleY})`;
         clone.style.borderRadius = '0px';
 
-        // Sheet parte nello stesso frame (zero lag) e resta attaccata all’immagine
-        sheet.classList.add('open');
+        sheet.classList.add('open'); // la tendina scende e clippa i testi
       });
 
-      const close = () => this._closeDetail(ov, panel, sheet, clone, cardEl, startRadius, scroller);
+      const close = () => this._closeDetail(ov, sheet, clone, startRadius, scroller);
       ov.querySelector('.close').addEventListener('click', close);
       ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
       const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -585,52 +518,56 @@
       ov._removeEsc = () => document.removeEventListener('keydown', onKey);
     }
 
-    _closeDetail(ov, panel, sheet, clone, cardEl, startRadius, scroller){
-      // Ripristina scroll della pagina e del carosello PRIMA del ricalcolo del rect
-      if (this._restore){
-        window.scrollTo(this._restore.winX, this._restore.winY);
-        scroller.scrollTo({ left: this._restore.scrollerLeft, behavior: 'auto' });
-      }
+    _closeDetail(ov, sheet, clone, startRadius, scroller){
+      // 1) Chiudi PRIMA la tendina (clippa e nasconde i testi)
+      sheet.classList.remove('open');
 
-      // Usa le coordinate salvate all'apertura per tornare esattamente lì
-      const r0 = this._restore?.rect;
-      if (r0){
-        const dur = Math.max(OPEN_DUR-40, 220);
-        clone.style.transition = `transform ${dur}ms cubic-bezier(.2,.7,.2,1), border-radius ${dur}ms ease`;
-        clone.style.transform  = `translate(${r0.left}px, ${r0.top}px) scale(1)`;
-        clone.style.borderRadius = startRadius;
+      // 2) Dopo che la tendina è salita un po', richiama la card
+      const WAIT = Math.max(OPEN_DUR * 0.55, 140);
+      setTimeout(() => {
+        // Ripristina scroll dello sfondo/carousel PRIMA del posizionamento
+        if (this._restore){
+          window.scrollTo(this._restore.winX, this._restore.winY);
+          scroller.scrollTo({ left: this._restore.scrollerLeft, behavior: 'auto' });
+        }
 
-        // Chiudi la sheet nello stesso istante (speculare)
-        sheet?.classList?.remove('open');
+        const r0 = this._restore?.rect;
+        if (r0){
+          const dur = Math.max(OPEN_DUR-40, 220);
+          clone.style.transition = `transform ${dur}ms ease-in-out, border-radius ${dur}ms ease-in-out`;
+          clone.style.transform  = `translate(${r0.left}px, ${r0.top}px) scale(1)`;
+          clone.style.borderRadius = startRadius;
 
-        setTimeout(() => {
-          ov._removeEsc?.();
-          ov.remove();
-          clone.remove();
-          this._lockPageScroll(false);
-          this._restore = null;
-        }, dur + 60);
-      } else {
-        // Fallback
-        sheet?.classList?.remove('open');
-        clone.style.transition = 'opacity .18s ease';
-        clone.style.opacity = '0';
-        setTimeout(() => {
-          ov._removeEsc?.();
-          ov.remove();
-          clone.remove();
-          this._lockPageScroll(false);
-        }, 200);
-      }
+          setTimeout(() => {
+            ov._removeEsc?.();
+            ov.remove();
+            this._lockPageScroll(false);
+            this._restore = null;
+          }, dur + 40);
+        } else {
+          // Fallback
+          clone.style.transition = 'opacity .18s ease-in-out';
+          clone.style.opacity = '0';
+          setTimeout(() => {
+            ov._removeEsc?.();
+            ov.remove();
+            this._lockPageScroll(false);
+          }, 200);
+        }
+      }, WAIT);
     }
 
     _lockPageScroll(lock){
       if (lock){
         this._prevOverflow = document.body.style.overflow;
+        this._prevTouchAct = document.body.style.touchAction;
         document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';   // blocca gesture di fondo (overlay ha scroll suo)
       } else {
         document.body.style.overflow = this._prevOverflow || '';
+        document.body.style.touchAction = this._prevTouchAct || '';
         this._prevOverflow = null;
+        this._prevTouchAct = null;
       }
     }
   }
