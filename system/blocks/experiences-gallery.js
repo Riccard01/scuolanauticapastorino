@@ -38,7 +38,7 @@
           img:'./assets/images/barca4.jpg',
           desc:'Elegante e stabile, con i suoi due alberi garantisce manovre più facili e bilanciate: la barca ideale per chi vuole imparare a gestire la vela con sicurezza e stile.',
           program:['09:30 – Briefing','10:00 – Manovre base','11:15 – Veleggiata','12:30 – Debrief'],
-          meeting:'Molo 3, Marina di San Luca',
+          meeting:'LAT 44.409220 LONG 8.924081',
           tips:['Restate leggeri','Portate acqua (1L)','Cappello e crema SPF'],
           cancel:'Cancellazione gratuita fino a 48 ore prima.'
         },
