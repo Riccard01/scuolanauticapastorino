@@ -185,7 +185,7 @@
       this._ro.observe(scroller);
 
       // Titolo typewriter
-      this._typeHeadline('Scegli la tua esperienza');
+      this._typeHeadline('La nostra flotta');
 
       requestAnimationFrame(() => this._queueUpdate());
     }
