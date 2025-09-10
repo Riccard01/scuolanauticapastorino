@@ -11,7 +11,7 @@ body {
     height: 3000px;
     font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
     font-weight: var(--weight-regular, 400);
-    overflow-x: hidden;
+    overflow-x: hidden !important;
 }
 
 section {
