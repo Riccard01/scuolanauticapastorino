@@ -38,7 +38,7 @@
           img:'./assets/images/barca4.jpg',
           desc:'Elegante e stabile, con i suoi due alberi garantisce manovre più facili e bilanciate: la barca ideale per chi vuole imparare a gestire la vela con sicurezza e stile.',
           program:['09:30 – Briefing','10:00 – Manovre base','11:15 – Veleggiata','12:30 – Debrief'],
-          meeting:'LAT 44.409220 LONG 8.924081',
+          meeting:'Molo 3, Marina di San Luca',
           tips:['Restate leggeri','Portate acqua (1L)','Cappello e crema SPF'],
           cancel:'Cancellazione gratuita fino a 48 ore prima.'
         },
@@ -108,8 +108,7 @@
 
           .wrap{ position:relative; }
 
-          /* === Carosello full-bleed senza spazio extra ai lati === */
-          /* Portiamo scroller a 100vw e lo centriamo rispetto alla pagina */
+          /* === Carosello full-bleed === */
           .wrap,
           .scroller{
             width:100vw;
@@ -127,9 +126,13 @@
             overscroll-behavior-x: contain;
           }
           .scroller::-webkit-scrollbar{ display:none; }
-          .scroller > *{ flex:0 0 auto; scroll-snap-align:center; scroll-snap-stop: normal; }
+          .scroller > *{ 
+            flex:0 0 auto; 
+            scroll-snap-align:center; 
+            scroll-snap-stop: normal; 
+          }
 
-
+          /* gli elementi animabili (le card) */
           .scroller > :not(.spacer){
             transform:scale(var(--_scale,1));
             opacity:var(--_opacity,1));
@@ -137,6 +140,7 @@
             will-change: transform, opacity;
           }
 
+          /* Dots */
           .dots{
             position:absolute; left:0; right:0; bottom:32px;
             display:flex; justify-content:center; gap:8px; pointer-events:none;
@@ -176,7 +180,7 @@
             display:flex; width:100%;
             height:calc(${HERO_RATIO * 100}vh);
             align-items:stretch; justify-content:stretch;
-            background: transparent; /* manteniamo il tuo design */
+            background: transparent;
           }
 
           .float-card{
@@ -205,7 +209,7 @@
             border-top-right-radius:0;
           }
 
-          /* Contenuto centrato, fit-content, con padding */
+          /* Contenuto */
           .content{
             width: fit-content;
             max-width: min(100%, 1100px);
@@ -244,9 +248,7 @@
 
           <div class="wrap">
             <div class="scroller" id="scroller">
-              <div class="spacer" aria-hidden="true"></div>
               <!-- cards create dinamicamente -->
-              <div class="spacer" aria-hidden="true"></div>
             </div>
             <div class="dots" id="dots" aria-hidden="true"></div>
           </div>
@@ -260,10 +262,7 @@
       const scroller = this.shadowRoot.getElementById('scroller');
       scroller.addEventListener('scroll', this._onScroll, { passive:true });
 
-      this._ro = new ResizeObserver(() => this._updateSpacers(true));
-      this._ro.observe(scroller);
-      window.addEventListener('resize', () => this._updateSpacers(true));
-      window.addEventListener('orientationchange', () => setTimeout(() => this._updateSpacers(true), 120));
+      // (Niente più observer/resize legati agli spacers)
 
       // Trigger SOLO dal bottone ds-button (evento 'ds-select')
       scroller.addEventListener('ds-select', (e) => {
@@ -279,13 +278,15 @@
 
       this._typeHeadline('La nostra flotta');
 
-      requestAnimationFrame(() => { this._updateSpacers(true); this._updateVisuals(); });
+      requestAnimationFrame(() => { 
+        // this._updateSpacers(true);  // <— rimosso
+        this._updateVisuals(); 
+      });
     }
 
     disconnectedCallback(){
       const scroller = this.shadowRoot.getElementById('scroller');
       scroller?.removeEventListener('scroll', this._onScroll);
-      this._ro?.disconnect();
       if (this._raf) cancelAnimationFrame(this._raf);
       if (this._twTimer){ clearTimeout(this._twTimer); this._twTimer = null; }
     }
@@ -293,7 +294,6 @@
     /* ---------- Render list ---------- */
     _renderList(){
       const scroller = this.shadowRoot.getElementById('scroller');
-      const anchor = scroller.lastElementChild;
       const frag = document.createDocumentFragment();
 
       this._data.forEach((item, idx) => {
@@ -320,7 +320,8 @@
         frag.appendChild(card);
       });
 
-      scroller.insertBefore(frag, anchor);
+      scroller.appendChild(frag);
+
       this._renderDots(this._data.length);
 
       setTimeout(() => {
@@ -350,9 +351,15 @@
     _onScroll(){ this._queueUpdate(); }
     _queueUpdate(){
       if (this._raf) return;
-      this._raf = requestAnimationFrame(() => { this._raf=null; this._updateSpacers(); this._updateVisuals(); });
+      this._raf = requestAnimationFrame(() => { 
+        this._raf=null; 
+        // this._updateSpacers();  // <— rimosso
+        this._updateVisuals(); 
+      });
     }
 
+    // >>>>>>>>>> SPACERS DISATTIVATI (no-op) <<<<<<<<<<
+    _updateSpacers(){ /* intenzionalmente vuota: nessun calcolo di spacer */ }
 
     _updateVisuals(){
       const scroller = this.shadowRoot.getElementById('scroller');
@@ -490,8 +497,6 @@
       const targetH = Math.round(window.innerHeight * HERO_RATIO);
       const scaleX  = targetW / rect.width;
       const scaleY  = targetH / rect.height;
-      const finalX  = 0;
-      const finalY  = 0;
 
       // Prepara altezza tendina = altezza contenuto (animiamo via CSS var)
       requestAnimationFrame(() => {
@@ -504,7 +509,7 @@
         ov.classList.add('open');
 
         clone.style.transition = `transform ${OPEN_DUR}ms ease-in-out, border-radius ${OPEN_DUR}ms ease-in-out`;
-        clone.style.transform  = `translate(${finalX}px, ${finalY}px) scale(${scaleX}, ${scaleY})`;
+        clone.style.transform  = `translate(0px, 0px) scale(${scaleX}, ${scaleY})`;
         clone.style.borderRadius = '0px';
 
         sheet.classList.add('open'); // la tendina scende e clippa i testi
