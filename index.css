@@ -6,7 +6,7 @@ body {
     padding: 0;
     margin: 5rem 0 0 0 ;
     overflow-x: hidden;
-    background-color: #13161F;
+    background-color: #FFF;
     height: 32000px;
     font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
     font-weight: var(--weight-regular, 400);
