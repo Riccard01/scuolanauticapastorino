@@ -25,9 +25,9 @@
 
       // Dati (solo "esperienza")
       this._data = [
-        { id:'rainbow', title:'Ketch',    price:'€570 per group',  img:'./assets/images/barca1.jpg', desc:'Esplora baie segrete da Punta Chiappa a Portofino.' },
-        { id:'gourmet', title:'Schooner', price:'€390 per group',  img:'./assets/images/barca2.jpg', desc:'Tramonto con degustazione a bordo.' },
-        { id:'stella',  title:'Sloop',    price:'€1200 per group', img:'./assets/images/barca3.jpg', desc:'Camogli e San Fruttuoso con aperitivo.' },
+        { id:'rainbow', title:'Ketch',    price:'€100/persona',  img:'./assets/images/barca4.jpg', desc:'Elegante e stabile, con i suoi due alberi garantisce manovre più facili e bilanciate: la barca ideale per chi vuole imparare a gestire la vela con sicurezza e stile.' },
+        { id:'gourmet', title:'Schooner', price:'€100/persona',  img:'./assets/images/barca2.jpg', desc:'Affascinante e intramontabile, con le sue vele imponenti richiama le grandi avventure d’altura: perfetta per vivere l’emozione della tradizione marinara.' },
+        { id:'stella',  title:'Sloop',    price:'€100/persona', img:'./assets/images/barca3.jpg', desc:'Agile e veloce, con un solo albero e manovre semplici è la barca scuola per eccellenza: immediata da comprendere e divertente da condurre fin dal primo bordo.' },
       ];
 
       this.shadowRoot.innerHTML = `
@@ -56,7 +56,6 @@
           /* Contenitore max-width per desktop */
           .container{
             width:100%;
-            padding-inline: var(--pad-inline);
           }
           @media (min-width: 900px){
             .container{
@@ -69,6 +68,7 @@
           .head{
             margin-top: 8px;
             margin-bottom: 4px;
+            margin-left: 1rem;
           }
           .headline{
             margin: 0 0 6px 0;

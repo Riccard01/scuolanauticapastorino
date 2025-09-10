@@ -39,7 +39,7 @@
 
       // meta pills (2): prezzo + orario
       this._price = this.getAttribute('price') || 'Prezzo su richiesta';
-      this._time  = this.getAttribute('time')  || 'Orario variabile';
+      this._time  = this.getAttribute('time')  || '6 persone';
 
       // filtri/chips (sopra al titolo): "filters" comma-separated o fallback "tag"
       const raw = this.getAttribute('filters') || this.getAttribute('tag') || '';
@@ -150,18 +150,11 @@
             min-width:0;
             padding:6px 8px;
             border-radius:999px;
-            border:1px solid rgba(255,255,255,.28);
+            border:1px solid rgba(16,185,129,.45);
             letter-spacing:.02em;
             width: fit-content;
-          }
-          .chip{
-            color:#bfe6ff;
-            background:rgba(0,160,255,.10);
-          }
-          .pill{
-            color:#e2f2ff;
-            background:rgba(37,99,235,.18);
-            border-color:rgba(255,255,255,.35);
+            background:rgba(16,185,129,.15);
+            color: #d1fae5;
           }
 
           h3{ font-size:18px; margin:0; font-weight:700; line-height:1.18; }
@@ -170,6 +163,8 @@
           .cta{ margin-top:8px; }
           .cta ::slotted(ds-button){ display:inline-block; width:auto; }
           .cta ::slotted(ds-button[full]){ display:block; width:100%; }
+          .cta ::slotted(ds-button[end]) {margin-left: auto;   /* lo spinge a destra */display: inline-flex; }
+
         </style>
 
         <div class="clip">
@@ -190,8 +185,8 @@
 
             <div class="cta" part="cta">
               <slot name="cta">
-                <ds-button variant="with-icon-light" size="md">
-                  <img class="icon" src="/assets/icons/brands/whatsapp.svg" alt="">
+                <ds-button variant="solid-light" size="md" end>
+                  <span slot="text">Scopri di più</span>
                 </ds-button>
               </slot>
             </div>
