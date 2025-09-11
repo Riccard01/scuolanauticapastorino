@@ -89,10 +89,8 @@
           /* Glow robusto e sempre visibile (anche dentro la card) */
           :host::before{
             content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-            /* sopra .bg (z=0) e sopra overlay/feather (z=2), sotto contenuti (z=5) e outline (z=8) */
             z-index:3;
             opacity:0; transform:scale(1);
-            /* doppio: gradient interno + shadow esterno verso il basso */
             background:
               radial-gradient(80% 70% at 50% 105%, rgba(var(--glow-rgb),.35) 0%, rgba(var(--glow-rgb),.18) 40%, rgba(0,0,0,0) 70%);
             box-shadow:
@@ -134,7 +132,15 @@
             background:linear-gradient(180deg,#FFF 10%,#999 80%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; opacity:0; transition:opacity .18s; }
           :host([data-active]) .price-badge{ opacity:1; }
 
+          /* media slot (sotto tutto) */
+          .media{ position:absolute; inset:0; z-index:0; border-radius:inherit; }
+          ::slotted(img[slot="image"]){
+            width:50%; height:%;
+            object-fit:cover; border-radius:inherit; display:block;
+          }
+
           .bg{ position:absolute; inset:0; background-size:cover; background-position:center; z-index:0; }
+
           .progress{ position:absolute; top:8px; left:8px; right:8px; display:grid; grid-auto-flow:column; gap:6px; z-index:4; pointer-events:none; }
           .bar{ height:3px; background:rgba(212, 39, 39, 0.35); border-radius:999px; overflow:hidden; }
           .bar>i{ display:block; height:100%; width:0%; background:rgba(255,255,255,.95); transition:width .2s linear; }
@@ -163,7 +169,13 @@
           <div class="bubble" part="bubble" aria-live="polite" hidden>
             <span class="tw"></span><i class="caret" aria-hidden="true"></i>
           </div>
+
+          <!-- SLOT IMMAGINE (prioritario) -->
+          <slot name="image" class="media" part="media"></slot>
+
+          <!-- Fallback background da attributo image/images -->
           <div class="bg" part="bg"></div>
+
           <div class="progress" part="progress"></div>
           <div class="overlay"></div>
           <div class="feather"></div>
@@ -185,6 +197,7 @@
       this.$left = sr.querySelector('.hit.left'); this.$right = sr.querySelector('.hit.right');
       this.$tag = sr.querySelector('.tag'); this.$title = sr.querySelector('h3'); this.$desc = sr.querySelector('p');
       this.$bubble = sr.querySelector('.bubble'); this.$tw = sr.querySelector('.bubble .tw');
+      this.$imgSlot = sr.querySelector('slot[name="image"]');
 
       this.$left.addEventListener('click', () => this.prev());
       this.$right.addEventListener('click', () => this.next());
@@ -193,7 +206,12 @@
       this.$right.addEventListener('pointerdown', down);
       window.addEventListener('pointerup', up);
 
+      if (this.$imgSlot){
+        this.$imgSlot.addEventListener('slotchange', () => this._toggleBgForSlot());
+      }
+
       this.style.setProperty('--safe-bottom', `${this._safeBottom}px`);
+      this._toggleBgForSlot();
     }
 
     _updateUI() {
@@ -206,7 +224,13 @@
 
       const v = (this._price||'').trim(); this.$price.textContent=v; this.$price.hidden=!v;
 
-      const url = this._images[this._index] || ''; this.$bg.style.backgroundImage = url ? `url("${this._imageOr(url)}")` : 'none';
+      // usa bg solo se non c'è immagine nello slot
+      const hasSlotImg = this.$imgSlot && this.$imgSlot.assignedElements().some(el => el.tagName === 'IMG');
+      const url = this._images[this._index] || '';
+      if (this.$bg) {
+        this.$bg.style.backgroundImage = (!hasSlotImg && url) ? `url("${this._imageOr(url)}")` : 'none';
+        this.$bg.style.display = hasSlotImg ? 'none' : 'block';
+      }
 
       // progress bars
       this.$prog.innerHTML = '';
@@ -277,6 +301,11 @@
     _stopTyping(clear=false){
       if (this._typeTimer){ clearTimeout(this._typeTimer); this._typeTimer=null; }
       if (clear && this.$tw){ this.$tw.textContent=''; this._typedChars=0; }
+    }
+
+    _toggleBgForSlot(){
+      const hasImg = this.$imgSlot && this.$imgSlot.assignedElements().some(el => el.tagName === 'IMG');
+      if (this.$bg) this.$bg.style.display = hasImg ? 'none' : 'block';
     }
   }
 

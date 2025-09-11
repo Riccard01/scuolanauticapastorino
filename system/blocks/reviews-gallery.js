@@ -80,51 +80,35 @@
           <div class="spacer" aria-hidden="true"></div>
 
           <review-card
-            image="./assets/images/florence.jpg"
-            title="Florence"
-            description="Riccardo è una guida esperta, discreta ma calorosa e familiare come un vecchio amico. Ti farà sentire come un locale che vive il sogno italiano per un giorno."
-            tag="Esperienza fantastica"
+            image="./assets/images/knot.png"
+            title="Manovre Correnti e Fisse"
+            description="Scopri le basi per gestire le cime e le manovre fondamentali in totale sicurezza."
+            tag="1 ora"
             avatar="./assets/images/avatar1.jpg">
           </review-card>
 
           <review-card
-            image="./assets/images/lana.jpg"
-            title="Lana"
-            description="And the captain was so nice and flexible..."
-            tag="Super raccomandato"
+            image="./assets/images/bussola.png"
+            title="Andature portanti e risalenti"
+            description="Impara a riconoscere e governare le diverse andature a vela, dal lasco alla bolina."
+            tag="5 ore"
             avatar="./assets/images/avatar2.jpg">
           </review-card>
 
           <review-card
-            image="./assets/images/simo.jpg"
-            title="Simone"
-            description="Un tour indimenticabile, dal primo all’ultimo minuto. Consigliatissimo a chi vuole scoprire la Liguria dal mare."
-            tag="Da rifare"
+            image="./assets/images/winch.png"
+            title="Manovre di Evoluzione"
+            description="Approfondisci le virate e le strambate per condurre l’imbarcazione con agilità."
+            tag="5 ore"
             avatar="./assets/images/avatar3.jpg">
           </review-card>
 
           
           <review-card
-            image="./assets/images/tipo.jpg"
-            title="Ahmed"
-            description="Un tour indimenticabile, dal primo all’ultimo minuto. Consigliatissimo a chi vuole scoprire la Liguria dal mare."
-            tag="Da rifare"
-            avatar="./assets/images/avatar3.jpg">
-          </review-card>
-
-          <review-card
-            image="./assets/images/elie.jpg"
-            title="Elie"
-            description="Un tour indimenticabile, dal primo all’ultimo minuto. Consigliatissimo a chi vuole scoprire la Liguria dal mare."
-            tag="Da rifare"
-            avatar="./assets/images/avatar3.jpg">
-          </review-card>
-
-          <review-card
-            image="./assets/images/melissa.jpg"
-            title="Melyssa"
-            description="Un tour indimenticabile, dal primo all’ultimo minuto. Consigliatissimo a chi vuole scoprire la Liguria dal mare."
-            tag="Da rifare"
+            image="./assets/images/galloccia.png"
+            title="Ormeggio e Disormeggio"
+            description="Tecniche pratiche per entrare e uscire dal porto in sicurezza e senza stress."
+            tag="2 ore"
             avatar="./assets/images/avatar3.jpg">
           </review-card>
 
