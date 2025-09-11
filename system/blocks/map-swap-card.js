@@ -1,11 +1,12 @@
 class MapSwapCard extends HTMLElement {
-  static get observedAttributes() { return ['lat','lng']; }
+  static get observedAttributes() { return ['lat','lng','img']; }
 
   constructor(){
     super();
     this.attachShadow({ mode:'open' });
     this._lat = parseFloat(this.getAttribute('lat') || '44.409220');
     this._lng = parseFloat(this.getAttribute('lng') || '8.924081');
+    this._img = this.getAttribute('img') || '';
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -18,7 +19,6 @@ class MapSwapCard extends HTMLElement {
           width:500px;
           height:300px;
           font-family: system-ui, sans-serif;
-          /* evita artefatti durante le animazioni */
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
@@ -29,9 +29,7 @@ class MapSwapCard extends HTMLElement {
           overflow:hidden;
           background:#fff;
           transition: transform .6s ease, width .6s ease, height .6s ease, box-shadow .6s ease;
-          will-change: transform, width, height;
-          /* elimina flash bordo nero */
-          border: 1px solid transparent;
+          border: 3px solid #fff;
           outline: none;
         }
         .card, .card * {
@@ -39,7 +37,6 @@ class MapSwapCard extends HTMLElement {
         }
         .card *:focus { outline: none; }
 
-        /* Stati logici */
         .main {
           width:100%; height:100%;
           top:0; left:0;
@@ -47,28 +44,25 @@ class MapSwapCard extends HTMLElement {
           z-index:1;
           display:flex;
           flex-direction:column;
-          justify-content:flex-end; /* il bottone viene gestito in assoluto, ma teniamo compatibilità */
+          justify-content:flex-end;
         }
         .mini {
           width: var(--mini-size);
           height: var(--mini-size);
-          /* posizionata in basso a destra, leggermente oltre il bordo per ridurre sovrapposizione al bottone */
           transform: translate(380px,185px) rotate(8deg);
           z-index:2;
           cursor:pointer;
-          border: 3px solid #fff;                 /* bordo bianco richiesto */
-          box-shadow: 0 8px 24px rgba(0,0,0,.28); /* ombra più marcata */
+          border: 3px solid #fff;
+          box-shadow: 0 8px 24px rgba(0,0,0,.28);
           pointer-events: auto;
         }
 
-        /* Contenuti */
         .map {
           position:absolute;
           inset:0;
           background-size:cover;
           background-position:center;
         }
-        /* Pin centrale visibile solo quando è main */
         .main .pin-overlay {
           position:absolute;
           top:50%; left:50%;
@@ -77,7 +71,6 @@ class MapSwapCard extends HTMLElement {
           background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="red" viewBox="0 0 24 24"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z"/></svg>') center/contain no-repeat;
           pointer-events:none;
         }
-        /* Quando diventa mini: nascondi mappa/bottone e mostra un piccolo pin centrale */
         .mini .map,
         .mini .button-container { display:none; }
         .mini::after{
@@ -90,14 +83,12 @@ class MapSwapCard extends HTMLElement {
           pointer-events:none;
         }
 
-        /* Slot immagine (mini) */
         ::slotted(img) {
           width:100%; height:100%;
           object-fit:cover;
           display:block;
         }
 
-        /* Bottone a larghezza 100% e centrato */
         .button-container{
           position:absolute;
           left:0; right:0; bottom:0;
@@ -116,7 +107,6 @@ class MapSwapCard extends HTMLElement {
         }
       </style>
 
-      <!-- Card mappa -->
       <div class="card main" id="mapCard" role="region" aria-label="Mappa">
         <div class="map"></div>
         <div class="pin-overlay" aria-hidden="true"></div>
@@ -127,7 +117,6 @@ class MapSwapCard extends HTMLElement {
         </div>
       </div>
 
-      <!-- Card indizio (foto) -->
       <div class="card mini" id="hintCard" role="button" aria-label="Indizio visivo (tocca per scambiare)">
         <slot name="mini"></slot>
       </div>
@@ -137,7 +126,6 @@ class MapSwapCard extends HTMLElement {
   connectedCallback(){
     this._updateMap();
 
-    // Gestione click: solo l'elemento che è attualmente "mini" fa lo swap
     this.shadowRoot.querySelectorAll('.card').forEach(c => {
       c.addEventListener('click', (e)=>{
         const el = e.currentTarget;
@@ -148,7 +136,6 @@ class MapSwapCard extends HTMLElement {
       });
     });
 
-    // Click su bottone: apri Maps; stoppa propagazione per sicurezza
     const btn = this.shadowRoot.querySelector('ds-button');
     if (btn) {
       btn.addEventListener('ds-select', (e) => {
@@ -161,30 +148,34 @@ class MapSwapCard extends HTMLElement {
   attributeChangedCallback(name, _, val){
     if(name==='lat') this._lat = parseFloat(val);
     if(name==='lng') this._lng = parseFloat(val);
+    if(name==='img') this._img = val || '';
     this._updateMap();
   }
 
   _updateMap(){
     const map = this.shadowRoot.querySelector('.map');
     if(!map) return;
-    map.style.backgroundImage =
-      `url("https://maps.googleapis.com/maps/api/staticmap?center=${this._lat},${this._lng}&zoom=15&size=500x300&markers=color:red%7C${this._lat},${this._lng}")`;
+
+    if (this._img) {
+      // Usa immagine personalizzata
+      map.style.backgroundImage = `url("${this._img}")`;
+    } else {
+      // Fallback: mappa statica di Google
+      map.style.backgroundImage =
+        `url("https://maps.googleapis.com/maps/api/staticmap?center=${this._lat},${this._lng}&zoom=15&size=500x300&markers=color:red%7C${this._lat},${this._lng}")`;
+    }
   }
 
   _swap(){
     const mapCard  = this.shadowRoot.getElementById('mapCard');
     const hintCard = this.shadowRoot.getElementById('hintCard');
-
-    // Inverti ruoli con animazione (translate/rotate/size gestiti dalle classi)
     mapCard.classList.toggle('main');
     mapCard.classList.toggle('mini');
-
     hintCard.classList.toggle('main');
     hintCard.classList.toggle('mini');
   }
 
   _onRouteClick(){
-    // Apri Google Maps con percorso dall'utente al punto
     const openSearch = () =>
       window.open(`https://www.google.com/maps/search/?api=1&query=${this._lat},${this._lng}`, '_blank', 'noopener');
 
@@ -193,8 +184,7 @@ class MapSwapCard extends HTMLElement {
         const {latitude,longitude}=pos.coords;
         window.open(
           `https://www.google.com/maps/dir/?api=1&origin=${latitude},${longitude}&destination=${this._lat},${this._lng}`,
-          '_blank',
-          'noopener'
+          '_blank','noopener'
         );
       }, openSearch, { enableHighAccuracy:true, maximumAge:10000, timeout:8000 });
     } else {
