@@ -145,6 +145,10 @@
           .btn:hover:not([disabled]){ background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.55); }
           .btn[disabled]{ opacity:.35; cursor:default; }
 
+          * {
+            font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
+          }
+
           /* overlay + feather (ombra interna) */
           .overlay{ position:absolute; inset:0; pointer-events:none; z-index:2;
             background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.35) 35%,rgba(0,0,0,.10) 60%,rgba(0,0,0,0) 85%); }
