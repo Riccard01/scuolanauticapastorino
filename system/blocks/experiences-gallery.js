@@ -25,9 +25,9 @@
 
       // Dati (solo "esperienza")
       this._data = [
-        { id:'rainbow', title:'Ketch',    price:'€100/persona',  img:'./assets/images/barca4.jpg', desc:'Elegante e stabile, con i suoi due alberi garantisce manovre più facili e bilanciate: la barca ideale per chi vuole imparare a gestire la vela con sicurezza e stile.' },
-        { id:'gourmet', title:'Schooner', price:'€100/persona',  img:'./assets/images/barca2.jpg', desc:'Affascinante e intramontabile, con le sue vele imponenti richiama le grandi avventure d’altura: perfetta per vivere l’emozione della tradizione marinara.' },
-        { id:'stella',  title:'Sloop',    price:'€100/persona', img:'./assets/images/barca3.jpg', desc:'Agile e veloce, con un solo albero e manovre semplici è la barca scuola per eccellenza: immediata da comprendere e divertente da condurre fin dal primo bordo.' },
+        // { id:'rainbow', title:'Ketch',    price:'€100/persona',  img:'./assets/images/barca4.jpg', desc:'Elegante e stabile, con i suoi due alberi garantisce manovre più facili e bilanciate: la barca ideale per chi vuole imparare a gestire la vela con sicurezza e stile.' },
+        { id:'gourmet', title:'Schooner', price:'€150/persona',  img:'./assets/images/barca3.jpg', desc:'Affascinante e intramontabile, con le sue vele imponenti richiama le grandi avventure d’altura: perfetta per vivere l’emozione della tradizione marinara.' },
+        { id:'stella',  title:'Sloop',    price:'€150/persona', img:'./assets/images/barca2.jpg', desc:'Agile e veloce, con un solo albero e manovre semplici è la barca scuola per eccellenza: immediata da comprendere e divertente da condurre fin dal primo bordo.' },
       ];
 
       this.shadowRoot.innerHTML = `
