@@ -1,4 +1,3 @@
-
 class MyVideo extends HTMLElement {
   constructor() {
     super();
@@ -43,10 +42,10 @@ class MyVideo extends HTMLElement {
           justify-content: center;
           text-align: center;
           padding: 1rem;
-          background: rgba(0,0,0,0.25); /* leggero scuro */
+          background: rgba(0,0,0,0.25);
         }
 
-        /* Mobile: video 9/16, larghezza piena, altezza auto */
+        /* Mobile: video 9/16 */
         @media (max-width: 768px) {
           video {
             width: 100%;
@@ -55,7 +54,7 @@ class MyVideo extends HTMLElement {
           }
         }
 
-        /* Desktop: fisso 500px di altezza */
+        /* Desktop: altezza fissa 500px */
         @media (min-width: 769px) {
           video {
             height: 500px;
@@ -64,16 +63,36 @@ class MyVideo extends HTMLElement {
           }
         }
 
-        /* Stili titoli invertiti */
-        ::slotted(my-title) .title {
-          color: white !important;
-        }
-        ::slotted(my-title) .subtitle {
-          color: white !important;
-        }
-
         .cta {
           margin-top: 1rem;
+        }
+
+        /* freccia animata */
+        .arrow {
+          margin-top: 1.5rem;
+          width: 32px;
+          height: 32px;
+          color: white;
+          animation: bounce 1.5s infinite;
+          cursor: pointer;
+        }
+
+        .arrow svg {
+          width: 100%;
+          height: 100%;
+          fill: white;
+        }
+
+        @keyframes bounce {
+          0%, 20%, 50%, 80%, 100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(8px);
+          }
+          60% {
+            transform: translateY(4px);
+          }
         }
       </style>
 
@@ -83,13 +102,22 @@ class MyVideo extends HTMLElement {
         </video>
 
         <div class="overlay">
-          <slot name="title">
-            <my-title title="${title}" subtitle="${subtitle}"></my-title>
-          </slot>
+          <my-title 
+            title="${title}" 
+            subtitle="${subtitle}" 
+            style="--my-title-color: white; --my-subtitle-color: white;">
+          </my-title>
+
           <div class="cta">
             <ds-button variant="overlay" size="lg" id="cta-btn">
               <span slot="text">Scopri il programma</span>
             </ds-button>
+          </div>
+
+          <div class="arrow" id="cta-arrow">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M12 16.5c-.26 0-.52-.1-.71-.29l-6-6a1.003 1.003 0 011.42-1.42L12 14.09l5.29-5.3a1.003 1.003 0 011.42 1.42l-6 6c-.19.19-.45.29-.71.29z"/>
+            </svg>
           </div>
         </div>
       </div>
@@ -100,16 +128,22 @@ class MyVideo extends HTMLElement {
 
   _attachEvents() {
     const btn = this.shadowRoot.querySelector('#cta-btn');
+    const arrow = this.shadowRoot.querySelector('#cta-arrow');
+
+    const scrollToFleet = () => {
+      const target = document.querySelector('#la-nostra-flotta');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
     if (btn) {
-      btn.addEventListener('ds-select', () => {
-        const target = document.querySelector('#la-nostra-flotta');
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth' });
-        }
-      });
+      btn.addEventListener('ds-select', scrollToFleet);
+    }
+    if (arrow) {
+      arrow.addEventListener('click', scrollToFleet);
     }
   }
 }
 
 customElements.define('my-video', MyVideo);
-
