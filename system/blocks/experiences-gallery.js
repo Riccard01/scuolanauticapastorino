@@ -173,7 +173,7 @@ _renderList() {
   // ARRAY DATI (con immagini locali)
   const demo = [
     {
-      title: 'Sloop',
+      title: 'Schooner',
       price: '€150/persona',
       desc:  'Agile e veloce.',
       images: ['/assets/images/sloop1.jpg',
@@ -187,7 +187,7 @@ _renderList() {
       ]
     },
     {
-      title: 'Schooner',
+      title: 'Sloop',
       price: '€150/persona',
       desc:  'Affascinante e intramontabile.',
       images: ['/assets/images/barca1.jpg','/assets/images/barca1.jpg']
