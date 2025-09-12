@@ -1,378 +1,320 @@
-// /system/blocks/experiences-gallery.js
-// Usa <experience-card> (stile tuo, invariato). Mobile: sempre carousel.
-// Desktop: desktop="dynamic-carousel" (grid centrata se non c'è overflow) | "carousel".
-// La gallery inietta <img slot="slide"> dentro ogni experience-card in base al dataset.
-
 (() => {
-  if (customElements.get('experiences-gallery')) return;
+  if (customElements.get('experience-card')) return;
 
-  const ENTER_DUR = 280;
-  const STAGGER   = 60;
-  const DESKTOP_MQ = '(min-width: 900px)';
+  class ExperienceCard extends HTMLElement {
+    static get observedAttributes() {
+      return ['title','description','price','time','filters','tag'];
+    }
 
-  class ExperiencesGallery extends HTMLElement {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
-      this._onScroll = this._onScroll.bind(this);
-      this._raf = null;
+      this._mounted = false;
+      this._current = 0;
+      this._slides = [];
+      this._render();
+    }
 
-      // ---- DATASET con immagini (modifica liberamente i path) ----
-      this._data = {
-        esperienza: [
-          { id:'rainbow', title:'Full Day',    price:'€650 per group', img:'./assets/images/portofino.jpg',   desc:'Una giornata intera di esplorazione nel golfo di Portofino' },
-          { id:'half',    title:'Half Day',    price:'€450 per group', img:'./assets/images/portofino.jpg',   desc:'Goditi mezza giornata di bagno a Bogliasco' },
-          { id:'gourmet', title:'Gourmet Sunset', price:'€390 per group', img:'./assets/images/genovese.jpg', desc:'Tramonto con degustazione a bordo.' },
-          { id:'stella',  title:'Stella Maris',   price:'€1200 per group', img:'./assets/images/special.jpg', desc:'Camogli e San Fruttuoso con aperitivo.' },
-          { id:'firew',   title:'Recco Fireworks',price:'€1200 per group', img:'./assets/images/fireworks.jpg',desc:'Notte di fuochi dal mare.' },
-        ],
-        barca: [
-          { id:'gozzo',  title:'Leggera',        price:'Incluso',  img:'./assets/images/leggera.jpg',  desc:'Classico e confortevole.' },
-          { id:'rib',    title:'Gozzo Ligure',   price:'+ €90',    img:'./assets/images/barca2.jpg',   desc:'Agile e veloce.' },
-          { id:'yacht',  title:'Piccolo Yacht',  price:'+ €350',   img:'./assets/images/barca3.jpg',   desc:'Eleganza e spazio.' },
-        ],
-        cibo: [
-          { id:'focaccia', title:'Prosciutto e melone',            price:'+ €30', img:'./assets/images/melone.jpg',   desc:'Tipico ligure.' },
-          { id:'crudo',    title:'Insalata di anguria e cipolle',  price:'+ €80', img:'./assets/images/anguria.jpg',  desc:'Selezione del giorno.' },
-          { id:'veget',    title:'Vegetariano',                    price:'+ €25', img:'./assets/images/couscous.jpg', desc:'Fresco e leggero.' },
-        ],
-        porto: [
-          { id:'camogli',   title:'Porto Antico', price:'—', img:'./assets/images/portoantico.jpg',  desc:'Partenza dal molo principale.' },
-          { id:'portofino', title:'Portofino',    price:'—', img:'./assets/images/portofino.jpg',    desc:'Iconico borgo.' },
-          { id:'recco',     title:'Recco',        price:'—', img:'./assets/images/porto1.jpg',       desc:'Comodo parcheggio.' },
-        ]
-      };
+    connectedCallback() {
+      this._readAll();
+      this._mount();
+      this._mounted = true;
+      this._updateUI();
+      this._observeResize();
+      this._initCarousel();
+    }
 
+    disconnectedCallback() {
+      if (this._ro) this._ro.disconnect();
+    }
+
+    attributeChangedCallback() {
+      if (!this._mounted) return;
+      this._readAll();
+      this._updateUI();
+    }
+
+    // --------- props ---------
+    _readAll() {
+      this._title = this.getAttribute('title') || 'Titolo esperienza';
+      this._desc  = this.getAttribute('description') || 'Descrizione breve...';
+      this._price = this.getAttribute('price') || 'Prezzo su richiesta';
+      this._time  = this.getAttribute('time')  || '6 persone';
+      const raw = this.getAttribute('filters') || this.getAttribute('tag') || '';
+      this._filters = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
+    }
+
+    // --------- template ---------
+    _render() {
       this.shadowRoot.innerHTML = `
         <style>
           :host{
-            display:block; position:relative; width:100%;
-            font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-            overflow-x: clip; contain: layout paint;
+            --glow-dur:.30s;
+            --glow-rgb:0,160,255;
 
-            --gap: 32px;
-            --overlap: 48px; /* sovrapposizione fra card */
+            inline-size: var(--card-w, 280px);
+            display:flex; border-radius:16px;
+            position:relative; overflow:visible;
+            transform:scale(var(--s,1));
+            transform-origin:center center;
+            transition:transform .28s cubic-bezier(.22,.61,.36,1);
+            background:#0b1220; color:#fff;
+            font-family:system-ui, sans-serif; box-shadow:0 10px 30px rgba(0,0,0,.35);
+            will-change: transform;
+            aspect-ratio: 16 / 9;
+            height: 450px;
           }
 
-          .container{ width:100%; }
-          @media (min-width:900px){ .container{ max-width:1100px; margin-inline:auto; } }
-
-          .wrap{ position:relative; }
-
-          /* --- CAROUSEL --- */
-          .scroller{
-            opacity:0; transition:opacity .15s ease !important;
-            overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
-            scroll-snap-type:x mandatory; padding-block:24px;
-            max-inline-size:100%; contain:content;
-            display:flex; align-items:stretch; gap:0;
+          @media (hover: hover) and (pointer: fine){
+            :host(:hover){ transform: scale(1.07); }
           }
-          :host([data-ready="true"]) .scroller{ opacity:1; }
-          .scroller::-webkit-scrollbar{ display:none; }
-
-          .spacer{
-            flex:0 0 auto;
-            inline-size: clamp(8px, calc(50svw - var(--peek, 110px)), 50svw);
-            scroll-snap-align:none;
+          @media (hover: none) and (pointer: coarse){
+            :host([data-active]){ transform: scale(1.08); }
           }
 
-          /* card come elementi diretti dello scroller */
-          .scroller > experience-card{
-            flex:0 0 auto;
-            scroll-snap-align:center; scroll-snap-stop:always;
-            position:relative;
-
-            /* trasformazione composta con variabili per lo scroll-FX */
-            --_r: 0deg;        /* rotazione */
-            --_s: .9;          /* scala dinamica */
-            --_ty: 36px;       /* translateY */
-            --_o: .8;          /* opacità */
-            transform: translateY(var(--_ty)) rotate(var(--_r)) scale(var(--_s));
-            opacity: var(--_o);
-            transition: transform .15s cubic-bezier(.2,.8,.2,1) !important, opacity .15s !important;
-            z-index:1;
+          /* Glow / ombra interna ripristinata */
+          :host::before{
+            content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+            z-index:3; opacity:0; transform:scale(1);
+            background:
+              radial-gradient(82% 72% at 50% 106%, rgba(var(--glow-rgb),.34) 0%, rgba(var(--glow-rgb),.16) 40%, rgba(0,0,0,0) 70%);
+            box-shadow:
+              0 28px 56px -16px rgba(var(--glow-rgb), .55),
+              0 0 0 1.5px       rgba(var(--glow-rgb), .40),
+              inset 0 -14px 28px     rgba(var(--glow-rgb), .28);
+            transition: opacity var(--glow-dur), transform var(--glow-dur), box-shadow var(--glow-dur), background var(--glow-dur);
           }
-          .scroller > experience-card + experience-card{ margin-left: calc(-1 * var(--overlap)); }
-
-          .scroller > experience-card[data-pos="left"]{
-            --_r: -6deg; --_ty: 24px; --_o: .9;
-          }
-          .scroller > experience-card[data-pos="right"]{
-            --_r: 6deg;  --_ty: 24px; --_o: .9;
-          }
-          .scroller > experience-card[data-active]{
-            --_r: 0deg;  --_ty: 0px;  --_s: 1; --_o: 1;
-            z-index:3;
+          :host([data-active])::before{
+            opacity:1; transform:scale(1);
+            background:
+              radial-gradient(86% 76% at 50% 109%, rgba(var(--glow-rgb),.40) 0%, rgba(var(--glow-rgb),.20) 42%, rgba(0,0,0,0) 72%);
+            box-shadow:
+              0 34px 70px -18px rgba(var(--glow-rgb), .60),
+              0 0 0 1.5px       rgba(var(--glow-rgb), .44),
+              inset 0 -16px 32px     rgba(var(--glow-rgb), .32);
           }
 
-          /* Dots del carosello esterno */
+          /* Outline */
+          :host::after{
+            content:""; position:absolute; inset:0; border-radius:inherit; outline:2px solid rgba(255,255,255,.3);
+            outline-offset:-2px; mix-blend-mode:overlay; pointer-events:none; z-index:6;
+          }
+
+          .clip{ position:absolute; inset:0; overflow:hidden; border-radius:inherit; }
+          .shine{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:12; }
+          .shine::before{ content:""; position:absolute; top:-150%; left:-50%; width:200%; height:150%;
+            background:linear-gradient(120deg,transparent 20%,rgba(255,255,255,.55) 50%,transparent 80%);
+            transform:rotate(25deg); opacity:0; }
+          :host([data-active]) .shine::before{ animation:shine-slide 1.6s ease-in-out .28s forwards; }
+          @keyframes shine-slide{ 0%{top:-150%;opacity:0} 25%{opacity:.85} 55%{top:0%;opacity:.95} 100%{top:150%;opacity:0} }
+
+          /* --- carosello immagini --- */
+          .carousel{ position:absolute; inset:0; overflow:hidden; z-index:0; }
+          .slides{ display:flex; width:100%; height:100%; transition: transform .45s ease; }
+          ::slotted(img[slot="slide"]){ flex:0 0 100%; width:100%; height:100%; object-fit:cover; }
+
+          /* frecce minimali */
+          .controls{ position:absolute; top:50%; left:0; right:0; display:flex; justify-content:space-between;
+                     transform:translateY(-50%); z-index:4; pointer-events:none; }
+          .btn{
+            background:rgba(0,0,0,.32);
+            border:1px solid rgba(255,255,255,.35);
+            color:#fff; font-size:18px;
+            width:32px; height:32px; border-radius:50%;
+            cursor:pointer; pointer-events:auto;
+            display:flex; align-items:center; justify-content:center;
+            transition:background .2s ease, opacity .2s ease, border-color .2s ease;
+          }
+          .btn:hover:not([disabled]){ background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.55); }
+          .btn[disabled]{ opacity:.35; cursor:default; }
+
+          /* overlay + feather (ombra interna) */
+          .overlay{ position:absolute; inset:0; pointer-events:none; z-index:2;
+            background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.35) 35%,rgba(0,0,0,.10) 60%,rgba(0,0,0,0) 85%); }
+          .feather{ position:absolute; left:0; right:0; bottom:0; height:42%;
+            backdrop-filter:blur(14px) saturate(110%); -webkit-backdrop-filter:blur(14px) saturate(110%);
+            background:rgba(6,10,22,.12); mask-image:linear-gradient(to top,black 60%,transparent 100%);
+            -webkit-mask-image:linear-gradient(to top,black 60%,transparent 100%); z-index:2; pointer-events:none; }
+
+          .content{ position:absolute; left:0; right:0; bottom:0; display:flex; flex-direction:column; gap:6px; padding:12px; z-index:5; }
+
+          /* --- Dots (stessa logica dell'experiences-gallery) --- */
           .dots{
-            position:absolute; left:0; right:0; bottom:32px;
-            display:flex; justify-content:center; gap:8px; pointer-events:none;
+            display:flex; justify-content:center; gap:8px;
+            pointer-events:none; margin-bottom:6px;
           }
           .dot{
-            inline-size:6px; block-size:6px; border-radius:999px;
-            background: rgba(17,24,39,.30);
+            inline-size: 6px; block-size: 6px; border-radius: 999px;
+            background: rgba(255,255,255,.45);
             transform: scale(1);
             transition: transform .18s ease, background-color .18s ease, opacity .18s;
-            opacity:.95;
+            opacity: .95;
           }
-          .dot[aria-current="true"]{ background:#111827; transform: scale(1.25); }
+          .dot[aria-current="true"]{
+            background:#ffffff;
+            transform: scale(1.25);
+          }
 
-          /* --- GRID (desktop senza carosello) --- */
-          :host([data-mode="grid"]) .scroller{
-            overflow:visible; scroll-snap-type:none; padding-bottom:2rem;
-            justify-content:center; gap: var(--gap);
+          /* TAG + meta + testi */
+          .filters, .meta{ display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden; margin:0; padding:0; --tag-fs: 11px; }
+          .filters{ margin-bottom:2px; }
+          .meta{ margin-bottom:4px; }
+          .chip, .pill{
+            font-size: var(--tag-fs); font-weight:700; line-height:1; white-space:nowrap;
+            flex: 0 1 auto; min-width:0; padding:6px 8px; border-radius:999px;
+            border:1px solid rgba(16,185,129,.45); letter-spacing:.02em; width: fit-content;
+            background:rgba(16,185,129,.15); color: #d1fae5;
           }
-          :host([data-mode="grid"]) .scroller > experience-card{
-            margin-left:0 !important;
-            --_r: 0deg; --_ty: 0px; --_s: 1; --_o: 1; /* statico, centrato */
-          }
-          :host([data-mode="grid"]) .spacer,
-          :host([data-mode="grid"]) .dots{ display:none !important; }
-
-          /* entrata */
-          @keyframes card-in{ from{opacity:0; transform: translateY(8px) scale(.985);} to{opacity:1; transform: translateY(0) scale(1);} }
-          .card-enter{ animation: card-in ${ENTER_DUR}ms cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--stagger-idx,0) * ${STAGGER}ms); }
-          @media (prefers-reduced-motion: reduce){ .card-enter{ animation:none !important; } }
+          h3{ font-size:18px; margin:0; font-weight:700; line-height:1.18; }
+          p{ font-size:14px; margin:0; color:#d1d5db; }
         </style>
 
-        <div class="container">
-          <div class="wrap">
-            <div class="scroller" id="scroller">
-              <div class="spacer" aria-hidden="true"></div>
-              <!-- cards dinamiche qui -->
-              <div class="spacer" aria-hidden="true"></div>
+        <div class="clip">
+          <div class="carousel">
+            <div class="slides"><slot name="slide"></slot></div>
+            <div class="controls">
+              <button class="btn" id="prev" aria-label="Immagine precedente">‹</button>
+              <button class="btn" id="next" aria-label="Immagine successiva">›</button>
             </div>
-            <div class="dots" id="dots" aria-hidden="true"></div>
           </div>
+
+          <div class="overlay"></div>
+          <div class="feather"></div>
+
+          <div class="content">
+            <!-- Dots prima di tag/titolo -->
+            <div class="dots" id="dots" aria-hidden="true"></div>
+
+            <div class="filters" part="filters" hidden></div>
+            <div class="meta">
+              <span class="pill pill-price" part="price"></span>
+              <span class="pill pill-time"  part="time"></span>
+            </div>
+
+            <h3 part="title"></h3>
+            <p part="description"></p>
+          </div>
+
+          <div class="shine"></div>
         </div>
       `;
     }
 
-    connectedCallback(){
-      this.$scroller = this.shadowRoot.getElementById('scroller');
-      this.$dots     = this.shadowRoot.getElementById('dots');
-
-      this._renderList(); // crea le experience-card + inietta <img slot="slide">
-
-      this.$scroller.addEventListener('scroll', this._onScroll, { passive:true });
-
-      this._ro = new ResizeObserver(() => { this._recomputeMode(); this._queueUpdate(); });
-      this._ro.observe(this.$scroller);
-
-      this._mql = window.matchMedia(DESKTOP_MQ);
-      this._mqHandler = () => this._recomputeMode(true);
-      this._mql.addEventListener?.('change', this._mqHandler);
-
-      requestAnimationFrame(() => {
-        this._recomputeMode(true);
-        this._queueUpdate();
-        this.setAttribute('data-ready','true');
-      });
+    // --------- refs ---------
+    _mount() {
+      this.$title = this.shadowRoot.querySelector('h3');
+      this.$desc  = this.shadowRoot.querySelector('p');
+      this.$filters = this.shadowRoot.querySelector('.filters');
+      this.$pillPrice = this.shadowRoot.querySelector('.pill-price');
+      this.$pillTime  = this.shadowRoot.querySelector('.pill-time');
+      this.$slidesContainer = this.shadowRoot.querySelector('.slides');
+      this.$dots = this.shadowRoot.getElementById('dots');
+      this.$prev = this.shadowRoot.getElementById('prev');
+      this.$next = this.shadowRoot.getElementById('next');
     }
 
-    disconnectedCallback(){
-      this.$scroller?.removeEventListener('scroll', this._onScroll);
-      this._ro?.disconnect();
-      this._mql?.removeEventListener?.('change', this._mqHandler);
-      if (this._raf) cancelAnimationFrame(this._raf);
+    // --------- UI text ---------
+    _updateUI() {
+      this.$title.textContent = this._title;
+      this.$desc.textContent  = this._desc;
+
+      if (this._filters && this._filters.length){
+        this.$filters.hidden = false;
+        this.$filters.innerHTML = '';
+        this._filters.forEach(f => {
+          const s = document.createElement('span');
+          s.className = 'chip';
+          s.textContent = f;
+          this.$filters.appendChild(s);
+        });
+      } else {
+        this.$filters.hidden = true;
+        this.$filters.innerHTML = '';
+      }
+
+      this.$pillPrice.textContent = this._price;
+      this.$pillTime.textContent  = this._time;
+
+      this._fitRow(this.$filters);
+      this._fitRow(this.$meta);
     }
 
-    /* ---------- Render cards e SLIDES ---------- */
-    _renderList(){
-      const section = (this.getAttribute('section') || 'esperienza').toLowerCase();
-      const items = this._data[section] || [];
+    // --------- carosello ---------
+    _initCarousel() {
+      const slot = this.shadowRoot.querySelector('slot');
+      this._slides = slot.assignedElements({ flatten:true });
 
-      const anchor = this.$scroller.lastElementChild; // spacer finale
-      const frag = document.createDocumentFragment();
-
-      items.forEach((item, idx) => {
-        const card = document.createElement('experience-card');
-        card.setAttribute('id', `${section}-${item.id}`);
-        if (item.title) card.setAttribute('title', item.title);
-        if (item.price) card.setAttribute('price', item.price);
-        if (item.desc)  card.setAttribute('description', item.desc);
-        if (item.filters) card.setAttribute('filters', item.filters);
-
-        // immagini: se item.images esiste usa quelle, altrimenti fallback a item.img
-        const slides = Array.isArray(item.images) && item.images.length ? item.images : (item.img ? [item.img] : []);
-        slides.forEach(src => {
+      // placeholder se vuoto
+      if (this._slides.length === 0) {
+        for (let i=0;i<3;i++) {
           const img = document.createElement('img');
           img.slot = 'slide';
-          img.loading = 'lazy';
-          img.decoding = 'async';
-          img.src = src;
-          img.alt = item.title || 'slide';
-          card.appendChild(img);
-        });
-
-        card.classList.add('card-enter');
-        card.style.setProperty('--stagger-idx', idx.toString());
-        frag.appendChild(card);
-      });
-
-      this.$scroller.insertBefore(frag, anchor);
-
-      // dots esterni = numero di card
-      this._renderDots(this._items().length);
-
-      // pulizia animazioni d’entrata
-      setTimeout(() => {
-        this.$scroller.querySelectorAll('.card-enter').forEach(el => el.classList.remove('card-enter'));
-      }, ENTER_DUR + (items.length - 1) * STAGGER + 20);
-    }
-
-    /* ---------- Modalità responsive ---------- */
-    _recomputeMode(forceCenter=false){
-      const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
-      const pref = (this.getAttribute('desktop') || 'dynamic-carousel').toLowerCase(); // 'dynamic-carousel' | 'carousel'
-
-      let mode = 'carousel';
-      if (isDesktop){
-        mode = (pref === 'carousel') ? 'carousel' : (this._hasOverflow() ? 'carousel' : 'grid');
-      }
-      this.dataset.mode = mode;
-
-      if (mode === 'grid'){
-        this.$dots.style.display = 'none';
-      } else {
-        this.$dots.style.display = '';
-        this._renderDots(this._items().length);
-        if (forceCenter) this._centerIndex(this._defaultIndex(), true);
-        this._updateVisuals(); // scroll FX + posizioni + dots
-      }
-    }
-
-    _hasOverflow(){
-      // overflow se la larghezza scrollabile supera la visibile (tolti i due spacer)
-      const sc = this.$scroller;
-      return (sc.scrollWidth - sc.clientWidth) > 1;
-    }
-
-    /* ---------- Scroll FX (carousel) ---------- */
-    _onScroll(){ if (this.dataset.mode === 'carousel') this._queueUpdate(); }
-
-    _queueUpdate(){
-      if (this.dataset.mode !== 'carousel') return;
-      if (this._raf) return;
-      this._raf = requestAnimationFrame(() => {
-        this._raf = null;
-        this._updateSpacers();
-        this._updateVisuals();
-      });
-    }
-
-    _items(){
-      return Array.from(this.$scroller.children)
-        .filter(el => el.tagName && el.tagName.toLowerCase() === 'experience-card');
-    }
-
-    _defaultIndex(){
-      const items = this._items();
-      return Math.floor(Math.max(0, items.length - 1) / 2);
-    }
-
-    _centerIndex(index, instant=false){
-      if (this.dataset.mode !== 'carousel') return;
-      const items = this._items();
-      const target = items[index];
-      if (!target) return;
-      const host = this.$scroller;
-      const hostRect = host.getBoundingClientRect();
-      const centerX = hostRect.left + hostRect.width / 2;
-      const r = target.getBoundingClientRect();
-      const targetCenterX = r.left + r.width / 2;
-      const delta = targetCenterX - centerX;
-      host.scrollTo({ left: host.scrollLeft + delta, behavior: instant ? 'auto' : 'smooth' });
-    }
-
-    _updateSpacers(){
-      if (this.dataset.mode !== 'carousel') return;
-      const items = this._items();
-      if (!items.length) return;
-
-      const hostRect = this.$scroller.getBoundingClientRect();
-      if (hostRect.width === 0) return;
-
-      const firstRect = items[0].getBoundingClientRect();
-      const lastRect  = items[items.length - 1].getBoundingClientRect();
-      if (firstRect.width === 0 || lastRect.width === 0) return;
-
-      const leftNeeded  = Math.max(12, (hostRect.width - firstRect.width) / 2);
-      const rightNeeded = Math.max(12, (hostRect.width - lastRect.width)  / 2);
-
-      const spacers = this.$scroller.querySelectorAll('.spacer');
-      if (spacers[0]) spacers[0].style.flexBasis = `${Math.round(leftNeeded)}px`;
-      if (spacers[1]) spacers[1].style.flexBasis = `${Math.round(rightNeeded)}px`;
-    }
-
-    _updateVisuals(){
-      if (this.dataset.mode !== 'carousel') return;
-
-      const hostRect = this.$scroller.getBoundingClientRect();
-      const centerX = hostRect.left + hostRect.width / 2;
-      const items = this._items();
-      if (!items.length) return;
-
-      let best = null, bestDist = Infinity;
-
-      for (const el of items){
-        const r = el.getBoundingClientRect();
-        const elCenterX = r.left + r.width / 2;
-        const dist = Math.abs(elCenterX - centerX);
-
-        // easing per scala/opacity dinamiche
-        const falloff = 260;
-        const t = 1 - Math.min(dist / falloff, 1);
-        const eased = 1 - (1 - t) * (1 - t);
-
-        const sMin = 0.94, sMax = 1.04, oMin = 0.95;
-        const s = sMin + (sMax - sMin) * eased;
-        const o = oMin + (1 - oMin) * eased;
-
-        el.style.setProperty('--_s', s.toFixed(4));
-        el.style.setProperty('--_o', o.toFixed(4));
-
-        if (dist < bestDist){ bestDist = dist; best = el; }
+          img.src = `https://picsum.photos/600/400?random=${Math.floor(Math.random()*1000)}`;
+          this.appendChild(img);
+        }
+        this._slides = slot.assignedElements({ flatten:true });
       }
 
-      // posizioni e attivo (per rotazioni/translate)
-      items.forEach(el => { el.removeAttribute('data-active'); el.removeAttribute('data-pos'); });
-      if (best){
-        best.setAttribute('data-active','');
-        const idx = items.indexOf(best);
-        if (items[idx - 1]) items[idx - 1].setAttribute('data-pos','left');
-        if (items[idx + 1]) items[idx + 1].setAttribute('data-pos','right');
-      }
+      this.$prev.addEventListener('click', () => this._show(this._current - 1));
+      this.$next.addEventListener('click', () => this._show(this._current + 1));
 
-      // dots esterni
-      const activeIndex = best ? items.indexOf(best) : 0;
-      this._updateDots(activeIndex);
+      this._renderDots();
+      this._show(0);
     }
 
-    /* ---------- Dots esterni ---------- */
-    _renderDots(count){
-      const dots = this.$dots;
-      if (!dots) return;
-      dots.innerHTML = '';
-      for (let i=0;i<count;i++){
+    _renderDots(){
+      this.$dots.innerHTML = '';
+      for (let i=0;i<this._slides.length;i++){
         const d = document.createElement('i');
         d.className = 'dot';
-        d.setAttribute('role','presentation');
-        dots.appendChild(d);
+        if (i === this._current) d.setAttribute('aria-current','true');
+        this.$dots.appendChild(d);
       }
-      this._updateDots(0);
     }
-    _updateDots(activeIndex){
-      if (this.dataset.mode !== 'carousel') return;
-      const list = Array.from(this.$dots.children);
-      list.forEach((el,i) => {
-        if (i === activeIndex) el.setAttribute('aria-current','true');
+
+    _show(index) {
+      if (!this._slides.length) return;
+      this._current = Math.max(0, Math.min(index, this._slides.length - 1));
+      this.$slidesContainer.style.transform = `translateX(-${this._current * 100}%)`;
+      this._updateControls();
+      this._updateDots();
+    }
+
+    _updateControls(){
+      this.$prev.disabled = this._current === 0;
+      this.$next.disabled = this._current === this._slides.length - 1;
+    }
+
+    _updateDots(){
+      const dots = Array.from(this.$dots.children);
+      dots.forEach((el, i) => {
+        if (i === this._current) el.setAttribute('aria-current','true');
         else el.removeAttribute('aria-current');
       });
     }
+
+    // --------- utilities ---------
+    _fitRow(row){
+      if (!row || row.hidden) return;
+      row.style.setProperty('--tag-fs', '11px');
+      const max = 11, min = 9;
+      let fs = max, guard = 0;
+      while (row.scrollWidth > row.clientWidth && fs > min && guard < 8) {
+        fs -= 0.5;
+        row.style.setProperty('--tag-fs', fs + 'px');
+        guard++;
+      }
+      row.style.overflow = 'hidden';
+    }
+
+    _observeResize(){
+      if (this._ro) this._ro.disconnect();
+      this._ro = new ResizeObserver(() => {
+        this._fitRow(this.$filters);
+      });
+      this._ro.observe(this);
+    }
   }
 
-  customElements.define('experiences-gallery', ExperiencesGallery);
+  customElements.define('experience-card', ExperienceCard);
 })();
