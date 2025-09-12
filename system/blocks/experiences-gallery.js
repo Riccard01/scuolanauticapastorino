@@ -280,39 +280,49 @@
       if (spacers[1]) spacers[1].style.flexBasis = `${Math.round(rightNeeded)}px`;
     }
 
-    _updateVisuals() {
-      if (this.dataset.mode !== 'carousel') return;
+_updateVisuals(){
+  if (this.dataset.mode !== 'carousel') return;
 
-      const scroller = this.$scroller;
-      const hostRect = scroller.getBoundingClientRect();
-      const hostCenterX = hostRect.left + hostRect.width / 2;
+  const hostRect = this.$scroller.getBoundingClientRect();
+  const centerX = hostRect.left + hostRect.width / 2;
+  const items = this._items();
+  if (!items.length) return;
 
-      const falloff = 260, sMin = 0.94, sMax = 1.04, oMin = 0.95;
-      const children = this._items();
+  let best = null, bestDist = Infinity;
 
-      let best = null, bestDist = Infinity;
+  for (const el of items){
+    const r = el.getBoundingClientRect();
+    const elCenterX = r.left + r.width / 2;
+    const dist = Math.abs(elCenterX - centerX);
 
-      for (const el of children) {
-        const r = el.getBoundingClientRect();
-        const center = r.left + r.width / 2;
-        const dist = Math.abs(center - hostCenterX);
+    // easing per scala/opacità dinamiche (senza toccare lo stile della card)
+    const falloff = 260;
+    const t = 1 - Math.min(dist / falloff, 1);
+    const eased = 1 - (1 - t) * (1 - t);
 
-        const t = 1 - Math.min(dist / falloff, 1); // 0..1
-        const eased = 1 - (1 - t) * (1 - t);       // easeOutQuad
+    const sMin = 0.94, sMax = 1.04, oMin = 0.95;
+    const s = sMin + (sMax - sMin) * eased;
+    const o = oMin + (1 - oMin) * eased;
 
-        const scale = sMin + (sMax - sMin) * eased;
-        const opacity = oMin + (1 - oMin) * eased;
+    el.style.setProperty('--_s', s.toFixed(4));
+    el.style.setProperty('--_o', o.toFixed(4));
 
-        el.style.setProperty('--_scale', scale.toFixed(4));
-        el.style.setProperty('--_opacity', opacity.toFixed(4));
+    if (dist < bestDist){ bestDist = dist; best = el; }
+  }
 
-        if (dist < bestDist) { bestDist = dist; best = el; }
-      }
+  // NIENTE data-active -> nessun glow blu
+  items.forEach(el => { el.removeAttribute('data-pos'); });
 
-      // Dots
-      const activeIndex = best ? children.indexOf(best) : 0;
-      this._updateDots(activeIndex);
-    }
+  if (best){
+    const idx = items.indexOf(best);
+    if (items[idx - 1]) items[idx - 1].setAttribute('data-pos','left');
+    if (items[idx + 1]) items[idx + 1].setAttribute('data-pos','right');
+  }
+
+  const activeIndex = best ? items.indexOf(best) : 0;
+  this._updateDots(activeIndex);
+}
+
 
     /* ---------- Dots ---------- */
     _renderDots(count){
