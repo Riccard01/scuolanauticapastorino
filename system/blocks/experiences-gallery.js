@@ -176,21 +176,21 @@ _renderList() {
       title: 'Schooner',
       price: '€150/persona',
       desc:  'Agile e veloce.',
-      images: ['/assets/images/sloop1.jpg',
-        '/assets/images/sloop2.jpg',
-        '/assets/images/sloop3.jpg',
-        '/assets/images/sloop4.jpg',
-        '/assets/images/sloop5.jpg',
-        '/assets/images/sloop6.jpg',
-        '/assets/images/sloop7.jpg',
-        '/assets/images/sloop8.jpg',
+      images: ['./assets/images/sloop1.jpg',
+        './assets/images/sloop2.jpg',
+        './assets/images/sloop3.jpg',
+        './assets/images/sloop4.jpg',
+        './assets/images/sloop5.jpg',
+        './assets/images/sloop6.jpg',
+        './assets/images/sloop7.jpg',
+        './assets/images/sloop8.jpg',
       ]
     },
     {
       title: 'Sloop',
       price: '€150/persona',
       desc:  'Affascinante e intramontabile.',
-      images: ['/assets/images/barca1.jpg','/assets/images/barca1.jpg']
+      images: ['./assets/images/barca1.jpg','./assets/images/barca1.jpg']
     }
   ];
 
