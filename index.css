@@ -9,6 +9,7 @@ body {
     background-color: #FFF;
     font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
     font-weight: var(--weight-regular, 400);
+    margin-bottom: 3rem;
 }
 
 section {

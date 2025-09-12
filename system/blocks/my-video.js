@@ -52,6 +52,10 @@ class MyVideo extends HTMLElement {
             height: auto;
             max-height: none;
           }
+
+          .cta-buttons {
+            flex-direction: column;
+          }
         }
 
         /* Desktop: altezza fissa 500px */
@@ -61,10 +65,22 @@ class MyVideo extends HTMLElement {
             width: auto;
             min-width: 100%;
           }
+
+          .cta-buttons {
+            flex-direction: row;
+          }
         }
 
         .cta {
           margin-top: 1rem;
+        }
+
+        .cta-buttons {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
         }
 
         /* freccia animata */
@@ -109,9 +125,14 @@ class MyVideo extends HTMLElement {
           </my-title>
 
           <div class="cta">
-            <ds-button variant="overlay" size="lg" id="cta-btn">
-              <span slot="text">Scopri il programma</span>
-            </ds-button>
+            <div class="cta-buttons">
+              <ds-button variant="overlay" size="lg" id="cta-btn-programma">
+                <span slot="text">Scopri il programma</span>
+              </ds-button>
+              <ds-button variant="overlay" size="lg" id="cta-btn-disponibilita">
+                <span slot="text">Vedi disponibilità</span>
+              </ds-button>
+            </div>
           </div>
 
           <div class="arrow" id="cta-arrow">
@@ -127,18 +148,25 @@ class MyVideo extends HTMLElement {
   }
 
   _attachEvents() {
-    const btn = this.shadowRoot.querySelector('#cta-btn');
+    const btnProgramma = this.shadowRoot.querySelector('#cta-btn-programma');
+    const btnDisponibilita = this.shadowRoot.querySelector('#cta-btn-disponibilita');
     const arrow = this.shadowRoot.querySelector('#cta-arrow');
 
     const scrollToFleet = () => {
       const target = document.querySelector('#la-nostra-flotta');
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth' });
-      }
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
     };
 
-    if (btn) {
-      btn.addEventListener('ds-select', scrollToFleet);
+    const scrollToWhatsapp = () => {
+      const target = document.querySelector('#whatsapp');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    if (btnProgramma) {
+      btnProgramma.addEventListener('ds-select', scrollToFleet);
+    }
+    if (btnDisponibilita) {
+      btnDisponibilita.addEventListener('ds-select', scrollToWhatsapp);
     }
     if (arrow) {
       arrow.addEventListener('click', scrollToFleet);
