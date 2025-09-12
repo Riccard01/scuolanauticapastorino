@@ -27,27 +27,51 @@
   <script src="./system/blocks/booking-calendar.js" defer></script>
   <script src="./system/blocks/whatsapp-card.js" defer></script>
   <script src="./system/blocks/map-card.js" defer></script>
+  <script src="./system/blocks/my-title.js" defer></script>
 </head>
 <body>
 
-<map-card lat="44.409220" lng="8.924081" zoom="14"></map-card>
 
+  
+  <my-title 
+  title="Programma del corso" 
+  subtitle="Dalle basi della vela alle manovre avanzate, un percorso completo passo passo.">
+</my-title>
+<reviews-gallery></reviews-gallery>
 
-
-<whatsapp-card
-  bg="https://i.pinimg.com/236x/6d/f5/9c/6df59cb0cc21c370cc47c36b326f93d4.jpg"
-  avatar="./assets/images/Lukas.jpg" 
-  name="Lukas"
-  phone="+39 347 487 8043"
-  text="Ciao! Vorrei informazioni sul weekend didattico a Vela. Hai disponibilità?"
-  speed="18">
-</whatsapp-card>
-
-<!-- La gallery -->
+<my-title 
+title="La nostra flotta" 
+subtitle="Esplora la flotta e scegli l’imbarcazione ideale per il tuo weekend didattico.">
+</my-title>
 <experiences-gallery></experiences-gallery>
 
-<reviews-gallery></reviews-gallery>
- 
+<my-title 
+  title="Dove siamo?" 
+  subtitle="Calata Molo Vecchio, 16128 Genova GE">
+</my-title>
+<map-card lat="44.409220" lng="8.924081" zoom="14">
+  <div slot="place">
+    <!-- Qui puoi mettere immagine/nome del luogo -->
+    <img src="./assets/images/scuola.jpg" alt="Luogo" style="width:64px; height:64px; border-radius:8px;">
+  </div>
+</map-card>
+
+<my-title 
+title="Contattaci" 
+subtitle="Disponibili 24h su 24h">
+</my-title>
+<whatsapp-card
+bg="https://i.pinimg.com/236x/6d/f5/9c/6df59cb0cc21c370cc47c36b326f93d4.jpg"
+avatar="./assets/images/Lukas.jpg" 
+name="Lukas"
+phone="+39 347 487 8043"
+text="Ciao! Vorrei informazioni sul weekend didattico a Vela. Hai disponibilità?"
+speed="18">
+</whatsapp-card>
+
+
+
+
 <!-- REVIEWS -->
 <!-- <img src="assets/images/knot.png" alt="" style="scale: .13; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
 <section class="reviews-section">

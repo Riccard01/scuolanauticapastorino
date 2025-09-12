@@ -20,7 +20,6 @@
           :host{
             inline-size: 250px; /* ✅ width fissa */
             display:block;
-            margin: var(--space-6, 24px) auto;
             font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
           }
           .card{

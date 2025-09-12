@@ -1,16 +1,17 @@
-// /system/blocks/experience-card.js
 (() => {
   if (customElements.get('experience-card')) return;
 
   class ExperienceCard extends HTMLElement {
     static get observedAttributes() {
-      return ['image','title','description','price','time','filters','tag'];
+      return ['title','description','price','time','filters','tag'];
     }
 
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
       this._mounted = false;
+      this._current = 0;
+      this._slides = [];
       this._render();
     }
 
@@ -20,6 +21,7 @@
       this._mounted = true;
       this._updateUI();
       this._observeResize();
+      this._initCarousel();
     }
 
     disconnectedCallback() {
@@ -33,21 +35,18 @@
     }
 
     _readAll() {
-      this._image = this.getAttribute('image') || '';
       this._title = this.getAttribute('title') || 'Titolo esperienza';
       this._desc  = this.getAttribute('description') || 'Descrizione breve...';
 
-      // meta pills (2): prezzo + orario
       this._price = this.getAttribute('price') || 'Prezzo su richiesta';
       this._time  = this.getAttribute('time')  || '6 persone';
 
-      // filtri/chips (sopra al titolo): "filters" comma-separated o fallback "tag"
       const raw = this.getAttribute('filters') || this.getAttribute('tag') || '';
       this._filters = raw
         .split(',')
         .map(s => s.trim())
         .filter(Boolean)
-        .slice(0, 4); // max 4 chip
+        .slice(0, 4);
     }
 
     _render() {
@@ -56,165 +55,133 @@
           :host{
             --glow-dur:.30s;
             --glow-rgb:0,160,255;
-
-            inline-size: var(--card-w, 220px);
+            inline-size: var(--card-w, 280px);
             display:flex; border-radius:16px;
-            position:relative; overflow:visible;
-            transform:scale(var(--s,1));
-            transform-origin:center center;
-            transition:transform .28s cubic-bezier(.22,.61,.36,1);
+            position:relative; overflow:hidden;
             background:#0b1220; color:#fff;
-            font-family:system-ui, sans-serif; box-shadow:0 10px 30px rgba(0,0,0,.35);
-            will-change: transform;
+            font-family:system-ui,sans-serif;
+            box-shadow:0 10px 30px rgba(0,0,0,.35);
             aspect-ratio: 16 / 9;
-            width: 90%;
             height: 450px;
           }
 
-          @media (hover: hover) and (pointer: fine){
-            :host(:hover){ transform: scale(1.07); }
-          }
-          @media (hover: none) and (pointer: coarse){
-            :host([data-active]){ transform: scale(1.08); }
-          }
-
-          /* Glow */
+          /* Effetti glow */
           :host::before{
             content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
             z-index:3; opacity:0; transform:scale(1);
-            background:
-              radial-gradient(82% 72% at 50% 106%, rgba(var(--glow-rgb),.34) 0%, rgba(var(--glow-rgb),.16) 40%, rgba(0,0,0,0) 70%);
-            box-shadow:
-              0 28px 56px -16px rgba(var(--glow-rgb), .55),
-              0 0 0 1.5px       rgba(var(--glow-rgb), .40),
-              inset 0 -14px 28px     rgba(var(--glow-rgb), .28);
-            transition: opacity var(--glow-dur), transform var(--glow-dur), box-shadow var(--glow-dur), background var(--glow-dur);
+            background: radial-gradient(82% 72% at 50% 106%, rgba(var(--glow-rgb),.34) 0%, rgba(var(--glow-rgb),.16) 40%, rgba(0,0,0,0) 70%);
+            box-shadow: 0 28px 56px -16px rgba(var(--glow-rgb), .55),
+                        0 0 0 1.5px rgba(var(--glow-rgb), .40),
+                        inset 0 -14px 28px rgba(var(--glow-rgb), .28);
+            transition: opacity var(--glow-dur);
           }
           :host([data-active])::before{
-            opacity:1; transform:scale(1);
-            background:
-              radial-gradient(86% 76% at 50% 109%, rgba(var(--glow-rgb),.40) 0%, rgba(var(--glow-rgb),.20) 42%, rgba(0,0,0,0) 72%);
-            box-shadow:
-              0 34px 70px -18px rgba(var(--glow-rgb), .60),
-              0 0 0 1.5px       rgba(var(--glow-rgb), .44),
-              inset 0 -16px 32px     rgba(var(--glow-rgb), .32);
+            opacity:1;
           }
-
-          /* Outline */
           :host::after{
-            content:""; position:absolute; inset:0; border-radius:inherit; outline:2px solid rgba(255,255,255,.3);
+            content:""; position:absolute; inset:0; border-radius:inherit;
+            outline:2px solid rgba(255,255,255,.3);
             outline-offset:-2px; mix-blend-mode:overlay; pointer-events:none; z-index:6;
           }
 
           .clip{ position:absolute; inset:0; overflow:hidden; border-radius:inherit; }
-          .shine{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:12; }
-          .shine::before{ content:""; position:absolute; top:-150%; left:-50%; width:200%; height:150%;
-            background:linear-gradient(120deg,transparent 20%,rgba(255,255,255,.55) 50%,transparent 80%);
-            transform:rotate(25deg); opacity:0; }
-          :host([data-active]) .shine::before{ animation:shine-slide 1.6s ease-in-out .28s forwards; }
-          @keyframes shine-slide{ 0%{top:-150%;opacity:0} 25%{opacity:.85} 55%{top:0%;opacity:.95} 100%{top:150%;opacity:0} }
 
-          .bg{ position:absolute; inset:0; background-size:cover; background-position:center; z-index:0; }
+          /* --- carosello immagini --- */
+          .carousel{
+            position:absolute; inset:0; overflow:hidden; z-index:0;
+          }
+          .slides{
+            display:flex;
+            width:100%; height:100%;
+            transition: transform .45s ease;
+          }
+          ::slotted(img[slot="slide"]){
+            flex:0 0 100%;
+            width:100%; height:100%;
+            object-fit:cover;
+          }
+          .controls{
+            position:absolute; top:50%; left:0; right:0;
+            display:flex; justify-content:space-between;
+            transform:translateY(-50%);
+            z-index:4;
+            pointer-events:none;
+          }
+          .btn{
+            background:rgba(0,0,0,.45);
+            border:none; color:#fff;
+            width:32px; height:32px; border-radius:50%;
+            cursor:pointer; pointer-events:auto;
+          }
+
+          /* overlay + feather */
           .overlay{ position:absolute; inset:0; pointer-events:none; z-index:2;
-            background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.35) 35%,rgba(0,0,0,.10) 60%,rgba(0,0,0,0) 85%); }
+            background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.35) 35%,rgba(0,0,0,.10) 60%,rgba(0,0,0,0) 85%);
+          }
           .feather{ position:absolute; left:0; right:0; bottom:0; height:42%;
-            backdrop-filter:blur(14px) saturate(110%); -webkit-backdrop-filter:blur(14px) saturate(110%);
-            background:rgba(6,10,22,.12); mask-image:linear-gradient(to top,black 60%,transparent 100%);
-            -webkit-mask-image:linear-gradient(to top,black 60%,transparent 100%); z-index:2; pointer-events:none; }
+            backdrop-filter:blur(14px) saturate(110%);
+            -webkit-backdrop-filter:blur(14px) saturate(110%);
+            background:rgba(6,10,22,.12);
+            mask-image:linear-gradient(to top,black 60%,transparent 100%);
+            -webkit-mask-image:linear-gradient(to top,black 60%,transparent 100%);
+            z-index:2; pointer-events:none; }
 
           .content{
             position:absolute; left:0; right:0; bottom:0;
-            display:flex; flex-direction:column; gap:6px; /* gap ridotto */
+            display:flex; flex-direction:column; gap:6px;
             padding:12px; z-index:5;
           }
-
-          /* RIGHE TAG: no wrap + shrink */
           .filters, .meta{
-            display:flex; align-items:center; gap:6px;
-            flex-wrap:nowrap; overflow:hidden;
-            margin:0; padding:0;
-            /* la dimensione testo dei tag viene controllata via --tag-fs */
-            --tag-fs: 11px;
+            display:flex; gap:6px; flex-wrap:nowrap; overflow:hidden;
+            margin:0; padding:0; --tag-fs: 11px;
           }
-
-          /* ordine: prima filtri, poi meta, poi titolo, poi descrizione */
-          .filters{ margin-bottom:2px; }
-          .meta{ margin-bottom:4px; }
-
           .chip, .pill{
-            font-size: var(--tag-fs);
-            font-weight:700;
-            line-height:1;
-            white-space:nowrap;
-            flex: 0 1 auto;  /* permetti shrink */
-            min-width:0;
-            padding:6px 8px;
-            border-radius:999px;
+            font-size: var(--tag-fs); font-weight:700;
+            line-height:1; white-space:nowrap;
+            padding:6px 8px; border-radius:999px;
             border:1px solid rgba(16,185,129,.45);
-            letter-spacing:.02em;
-            width: fit-content;
-            background:rgba(16,185,129,.15);
-            color: #d1fae5;
+            background:rgba(16,185,129,.15); color:#d1fae5;
           }
-
           h3{ font-size:18px; margin:0; font-weight:700; line-height:1.18; }
           p{ font-size:14px; margin:0; color:#d1d5db; }
-
-          .cta{ margin-top:8px; }
-          .cta ::slotted(ds-button){ display:inline-block; width:auto; }
-          .cta ::slotted(ds-button[full]){ display:block; width:100%; }
-          .cta ::slotted(ds-button[end]) {margin-left: auto;   /* lo spinge a destra */display: inline-flex; }
-
         </style>
 
         <div class="clip">
-          <div class="bg" part="bg"></div>
+          <div class="carousel">
+            <div class="slides"><slot name="slide"></slot></div>
+            <div class="controls">
+              <button class="btn" id="prev">‹</button>
+              <button class="btn" id="next">›</button>
+            </div>
+          </div>
           <div class="overlay"></div>
           <div class="feather"></div>
 
           <div class="content">
-            <!-- TAG sopra al titolo -->
             <div class="filters" part="filters" hidden></div>
             <div class="meta">
               <span class="pill pill-price" part="price"></span>
               <span class="pill pill-time"  part="time"></span>
             </div>
-
             <h3 part="title"></h3>
             <p part="description"></p>
-
-            <div class="cta" part="cta">
-              <slot name="cta">
-                <ds-button variant="solid-light" size="md" end>
-                  <span slot="text">Scopri di più</span>
-                </ds-button>
-              </slot>
-            </div>
           </div>
-
-          <div class="shine"></div>
         </div>
       `;
     }
 
     _mount() {
-      this.$bg    = this.shadowRoot.querySelector('.bg');
       this.$title = this.shadowRoot.querySelector('h3');
       this.$desc  = this.shadowRoot.querySelector('p');
       this.$filters = this.shadowRoot.querySelector('.filters');
-      this.$meta = this.shadowRoot.querySelector('.meta');
       this.$pillPrice = this.shadowRoot.querySelector('.pill-price');
       this.$pillTime  = this.shadowRoot.querySelector('.pill-time');
     }
 
     _updateUI() {
-      if (!this.$bg || !this.$title || !this.$desc) return;
-
-      this.$bg.style.backgroundImage = this._image ? `url("${this._image}")` : 'none';
       this.$title.textContent = this._title;
       this.$desc.textContent  = this._desc;
 
-      // FILTRI
       if (this._filters && this._filters.length){
         this.$filters.hidden = false;
         this.$filters.innerHTML = '';
@@ -229,36 +196,44 @@
         this.$filters.innerHTML = '';
       }
 
-      // META (2 tag): prezzo + orario
-      this.$pillPrice.textContent = this._price || 'Prezzo su richiesta';
-      this.$pillTime.textContent  = this._time  || 'Orario variabile';
-
-      // Fit su una sola riga per i contenitori tag
-      this._fitRow(this.$filters);
-      this._fitRow(this.$meta);
+      this.$pillPrice.textContent = this._price;
+      this.$pillTime.textContent  = this._time;
     }
 
-    _fitRow(row){
-      if (!row || row.hidden) return;
-      // reset a dimensione base
-      row.style.setProperty('--tag-fs', '11px');
-      const max = 11, min = 9;
-      // se non sta su una riga, riduci font-size gradualmente
-      let fs = max, guard = 0;
-      while (row.scrollWidth > row.clientWidth && fs > min && guard < 8) {
-        fs -= 0.5;
-        row.style.setProperty('--tag-fs', fs + 'px');
-        guard++;
+    _initCarousel() {
+      const slot = this.shadowRoot.querySelector('slot');
+      this._slides = slot.assignedElements({ flatten:true });
+
+      // se non ci sono immagini → placeholder
+      if (this._slides.length === 0) {
+        for (let i=0;i<2;i++) {
+          const img = document.createElement('img');
+          img.slot = 'slide';
+          img.src = `https://picsum.photos/600/400?random=${Math.random()}`;
+          this.appendChild(img);
+        }
+        this._slides = slot.assignedElements({ flatten:true });
       }
-      // come ulteriore protezione, nascondi l’eventuale overflow visuale
-      row.style.overflow = 'hidden';
+
+      this._show(0);
+
+      this.shadowRoot.getElementById('prev')
+        .addEventListener('click', () => this._show(this._current - 1));
+      this.shadowRoot.getElementById('next')
+        .addEventListener('click', () => this._show(this._current + 1));
+    }
+
+    _show(index) {
+      if (!this._slides.length) return;
+      this._current = (index + this._slides.length) % this._slides.length;
+      const slidesEl = this.shadowRoot.querySelector('.slides');
+      slidesEl.style.transform = `translateX(-${this._current * 100}%)`;
     }
 
     _observeResize(){
       if (this._ro) this._ro.disconnect();
       this._ro = new ResizeObserver(() => {
-        this._fitRow(this.$filters);
-        this._fitRow(this.$meta);
+        // eventuali fix responsive
       });
       this._ro.observe(this);
     }
