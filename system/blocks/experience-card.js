@@ -3,7 +3,7 @@
 
   class ExperienceCard extends HTMLElement {
     static get observedAttributes() {
-      return ['title','description','price','time','filters','tag'];
+      return ['title','description','price','time','filters','tag','images'];
     }
 
     constructor() {
@@ -28,10 +28,19 @@
       if (this._ro) this._ro.disconnect();
     }
 
-    attributeChangedCallback() {
+    attributeChangedCallback(name, _oldValue, _newValue) {
       if (!this._mounted) return;
       this._readAll();
       this._updateUI();
+
+      // Se cambia l'array immagini, rigeneriamo gli slide
+      if (name === 'images') {
+        this._applyImages();
+        const slot = this.shadowRoot.querySelector('slot');
+        this._slides = slot.assignedElements({ flatten:true });
+        this._renderDots();
+        this._show(0);
+      }
     }
 
     // --------- props ---------
@@ -40,8 +49,16 @@
       this._desc  = this.getAttribute('description') || 'Descrizione breve...';
       this._price = this.getAttribute('price') || 'Prezzo su richiesta';
       this._time  = this.getAttribute('time')  || '6 persone';
+
       const raw = this.getAttribute('filters') || this.getAttribute('tag') || '';
       this._filters = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
+
+      // NUOVO: immagini locali (lista di path separati da virgola)
+      const imgs = (this.getAttribute('images') || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      this._images = imgs;
     }
 
     // --------- template ---------
@@ -72,7 +89,7 @@
             :host([data-active]){ transform: scale(1.08); }
           }
 
-          /* Glow / ombra interna ripristinata */
+          /* Glow / ombra interna */
           :host::before{
             content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
             z-index:3; opacity:0; transform:scale(1);
@@ -236,20 +253,45 @@
       this.$pillTime.textContent  = this._time;
 
       this._fitRow(this.$filters);
-      this._fitRow(this.$meta);
+      // rimosso: this._fitRow(this.$meta); // non esiste $meta
     }
 
     // --------- carosello ---------
+    _applyImages() {
+      if (!this._images || this._images.length === 0) return;
+
+      // Rimuovi <img> generati in precedenza da noi
+      Array.from(this.querySelectorAll('img[slot="slide"][data-generated="true"]')).forEach(el => el.remove());
+
+      // Se lo slot è già popolato manualmente, non tocchiamo nulla
+      const already = this.querySelector('img[slot="slide"]');
+      if (already) return;
+
+      // Genera gli slide dalle immagini locali
+      this._images.forEach(src => {
+        const img = document.createElement('img');
+        img.slot = 'slide';
+        img.src = src;
+        img.loading = 'lazy';
+        img.setAttribute('data-generated', 'true');
+        this.appendChild(img);
+      });
+    }
+
     _initCarousel() {
+      // Applica prima le immagini locali se fornite
+      this._applyImages();
+
       const slot = this.shadowRoot.querySelector('slot');
       this._slides = slot.assignedElements({ flatten:true });
 
-      // placeholder se vuoto
+      // Placeholder se ancora vuoto
       if (this._slides.length === 0) {
         for (let i=0;i<3;i++) {
           const img = document.createElement('img');
           img.slot = 'slide';
           img.src = `https://picsum.photos/600/400?random=${Math.floor(Math.random()*1000)}`;
+          img.setAttribute('data-generated', 'true');
           this.appendChild(img);
         }
         this._slides = slot.assignedElements({ flatten:true });
@@ -257,6 +299,13 @@
 
       this.$prev.addEventListener('click', () => this._show(this._current - 1));
       this.$next.addEventListener('click', () => this._show(this._current + 1));
+
+      // Reagisce a cambi slot (es. se cambi images a runtime)
+      slot.addEventListener('slotchange', () => {
+        this._slides = slot.assignedElements({ flatten:true });
+        this._renderDots();
+        this._show(0);
+      });
 
       this._renderDots();
       this._show(0);

@@ -165,35 +165,62 @@
     }
 
     /* ---------- Render semplice (niente form) ---------- */
-    _renderList() {
-      const scroller = this.shadowRoot.getElementById('scroller');
-      const anchor = scroller.lastElementChild; // spacer finale
-      const frag = document.createDocumentFragment();
+_renderList() {
+  const scroller = this.shadowRoot.getElementById('scroller');
+  const anchor = scroller.lastElementChild; // spacer finale
+  const frag = document.createDocumentFragment();
 
-      // Popola come preferisci; qui lascio 3 card-demo minimali
-      const demo = [
-        { title:'Schooner', price:'€150/persona', desc:'Affascinante e intramontabile.' },
-        { title:'Sloop',    price:'€150/persona', desc:'Agile e veloce.' },
-        { title:'Ketch',    price:'€170/persona', desc:'Due alberi, grande stabilità.' },
-      ];
-
-      demo.forEach((item, idx) => {
-        const card = document.createElement('experience-card');
-        card.setAttribute('title', item.title);
-        card.setAttribute('price', item.price);
-        card.setAttribute('description', item.desc);
-
-        card.classList.add('card-enter');
-        card.style.setProperty('--stagger-idx', idx.toString());
-
-        frag.appendChild(card);
-      });
-
-      scroller.insertBefore(frag, anchor);
-
-      // dots iniziali (in carousel)
-      this._renderDots(this._items().length);
+  // ARRAY DATI (con immagini locali)
+  const demo = [
+    {
+      title: 'Sloop',
+      price: '€150/persona',
+      desc:  'Agile e veloce.',
+      images: ['/assets/images/sloop1.jpg',
+        '/assets/images/sloop2.jpg',
+        '/assets/images/sloop3.jpg',
+        '/assets/images/sloop4.jpg',
+        '/assets/images/sloop5.jpg',
+        '/assets/images/sloop6.jpg',
+        '/assets/images/sloop7.jpg',
+        '/assets/images/sloop8.jpg',
+      ]
+    },
+    {
+      title: 'Schooner',
+      price: '€150/persona',
+      desc:  'Affascinante e intramontabile.',
+      images: ['/assets/images/barca1.jpg','/assets/images/barca1.jpg']
     }
+  ];
+
+  demo.forEach((item, idx) => {
+    const card = document.createElement('experience-card');
+    card.setAttribute('title', item.title);
+    card.setAttribute('price', item.price);
+    card.setAttribute('description', item.desc);
+
+    // 👉 Popoliamo lo slot "slide" con <img> locali
+    item.images.forEach(src => {
+      const img = document.createElement('img');
+      img.slot = 'slide';
+      img.src = src;
+      img.loading = 'lazy';
+      card.appendChild(img);
+    });
+
+    card.classList.add('card-enter');
+    card.style.setProperty('--stagger-idx', idx.toString());
+
+    frag.appendChild(card);
+  });
+
+  scroller.insertBefore(frag, anchor);
+
+  // dots iniziali (in carousel)
+  this._renderDots(this._items().length);
+}
+
 
     /* ---------- Modalità responsive ---------- */
     _recomputeMode(forceCenter=false){
