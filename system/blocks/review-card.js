@@ -84,12 +84,15 @@
             display:flex; flex:0 0 220px; width:200px; aspect-ratio:9/16; border-radius:16px; overflow:visible; position:relative;
             transform:scale(var(--s,1)); transition:transform .24s cubic-bezier(.2,.8,.2,1); background:#0b1220; color:#fff; font-family:system-ui,sans-serif;
             box-shadow:0 10px 30px rgba(0,0,0,.35);
+
+            /* <-- isola dal layout esterno: niente contributo allo scroll orizzontale */
+            contain: layout paint;
+            overflow-x: clip;
           }
 
-          /* Glow robusto e sempre visibile (anche dentro la card) */
+          /* Glow */
           :host::before{
-            content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-            z-index:3;
+            content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:3;
             opacity:0; transform:scale(1);
             background:
               radial-gradient(80% 70% at 50% 105%, rgba(var(--glow-rgb),.35) 0%, rgba(var(--glow-rgb),.18) 40%, rgba(0,0,0,0) 70%);
@@ -135,14 +138,17 @@
           /* media slot (sotto tutto) */
           .media{ position:absolute; inset:0; z-index:0; border-radius:inherit; }
           ::slotted(img[slot="image"]){
-            width:50%; height:%;
-            object-fit:cover; border-radius:inherit; display:block;
+            width:100%;
+            height:100%;                 /* <-- fix del bug: prima era 'height:%;' */
+            object-fit:cover;
+            border-radius:inherit;
+            display:block;
           }
 
           .bg{ position:absolute; inset:0; background-size:cover; background-position:center; z-index:0; }
 
           .progress{ position:absolute; top:8px; left:8px; right:8px; display:grid; grid-auto-flow:column; gap:6px; z-index:4; pointer-events:none; }
-          .bar{ height:3px; background:rgba(212, 39, 39, 0.35); border-radius:999px; overflow:hidden; }
+          .bar{ height:3px; background:rgba(212,39,39,.35); border-radius:999px; overflow:hidden; }
           .bar>i{ display:block; height:100%; width:0%; background:rgba(255,255,255,.95); transition:width .2s linear; }
           .bar[data-done="true"]>i{ width:100%; }
 
