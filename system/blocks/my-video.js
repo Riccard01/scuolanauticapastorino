@@ -31,6 +31,8 @@ class MyVideo extends HTMLElement {
           height: auto;
           max-height: 500px;
           object-fit: cover;
+          position: relative;
+          z-index: 0;
         }
 
         .overlay {
@@ -43,6 +45,7 @@ class MyVideo extends HTMLElement {
           text-align: center;
           padding: 1rem;
           background: rgba(0,0,0,0.25);
+          z-index: 2; /* sopra al video e alla decorazione */
         }
 
         /* Mobile: video 9/16 */
@@ -69,6 +72,18 @@ class MyVideo extends HTMLElement {
           .cta-buttons {
             flex-direction: row;
           }
+        }
+
+        .decorations {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: -2px;
+          width: 100%;
+          height: auto;
+          display: block;
+          pointer-events: none;
+          z-index: 4; /* sopra il video, sotto l’overlay */
         }
 
         .cta {
@@ -116,7 +131,8 @@ class MyVideo extends HTMLElement {
         <video autoplay muted loop playsinline>
           <source src="${videoSrc}" type="video/mp4">
         </video>
-        <img src="./assets/decorations/waves.svg" alt="">
+
+        <img class="decorations" src="./assets/decorations/waves.svg" alt="">
 
         <div class="overlay">
           <my-title 
