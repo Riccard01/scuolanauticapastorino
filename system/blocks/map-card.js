@@ -9,6 +9,7 @@ class MapCard extends HTMLElement {
     this.zoom = parseInt(this.getAttribute('zoom')) || 14;
     this._map = null;
     this._marker = null;
+    this._isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     this._render();
   }
 
@@ -24,49 +25,39 @@ class MapCard extends HTMLElement {
   _render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host {
-          display:flex; justify-content:center;
-          width:90vw; max-width:920px;
-        }
-        .card {
-          position:relative; flex:1;
-          border-radius:16px; overflow:hidden;
-          box-shadow:0 12px 30px rgba(0,0,0,.12);
-        }
+        :host { display:flex; justify-content:center; width:90vw; max-width:920px; }
+        .card { position:relative; flex:1; border-radius:16px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,.12); }
         #map { width:100%; height:60vh; }
 
-        .overlay-top-left {
-          position:absolute; top:12px; left:12px; z-index:1000;
-        }
-        .overlay-bottom {
-          position:absolute; bottom:12px; left:0; right:0; z-index:1000;
-          display:flex; padding:0 12px; pointer-events:none;
-        }
-        .overlay-bottom ds-button {
-          width:100%; pointer-events:auto;
-        }
-        ds-button::part(button) {
-          background:#000 !important;
-          border-color:#000 !important;
-          color:#fff !important;
-        }
+        .overlay-top-left { position:absolute; top:12px; left:12px; z-index:1000; }
+        .overlay-bottom { position:absolute; bottom:12px; left:0; right:0; z-index:1000; display:flex; padding:0 12px; pointer-events:none; }
+        .overlay-bottom ds-button { width:100%; pointer-events:auto; }
+        ds-button::part(button) { background:#000 !important; border-color:#000 !important; color:#fff !important; }
 
         .leaflet-control-container { display:none; }
         .leaflet-container { font: inherit; }
+
+        .gesture-hint {
+          position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+          background:rgba(0,0,0,.6); color:#fff; padding:8px 12px;
+          border-radius:999px; font-size:14px; line-height:1; z-index:1000;
+          opacity:0; pointer-events:none; transition:opacity .2s ease;
+        }
+        .gesture-hint.show { opacity:1; }
+        @media (hover:none) and (pointer:coarse) {
+          .gesture-hint { display:block; }
+        }
       </style>
 
       <div class="card">
         <div id="map"></div>
-
-        <div class="overlay-top-left">
-          <slot name="place"></slot>
-        </div>
-
+        <div class="overlay-top-left"><slot name="place"></slot></div>
         <div class="overlay-bottom">
           <ds-button id="goBtn" variant="solid-dark" size="lg" full>
             <span slot="text">Scopri Percorso</span>
           </ds-button>
         </div>
+        <div id="hint" class="gesture-hint">Usa due dita per muovere la mappa</div>
       </div>
     `;
   }
@@ -77,12 +68,15 @@ class MapCard extends HTMLElement {
 
     this._map = L.map(container, {
       zoomControl: false,
-      attributionControl: false
+      attributionControl: false,
+      scrollWheelZoom: false,
+      dragging: !this._isTouch,
+      touchZoom: this._isTouch ? false : true,
+      doubleClickZoom: !this._isTouch
     }).setView([this.lat, this.lng], this.zoom);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(this._map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 })
+      .addTo(this._map);
 
     const svg = encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
@@ -98,34 +92,43 @@ class MapCard extends HTMLElement {
       iconSize: [36, 36],
       iconAnchor: [18, 34]
     });
-
     this._marker = L.marker([this.lat, this.lng], { icon }).addTo(this._map);
 
     this.shadowRoot.getElementById('goBtn')
       .addEventListener('ds-select', () => this._openRoute());
+
+    if (this._isTouch) this._enableTwoFingerMode(container);
+  }
+
+  _enableTwoFingerMode(container) {
+    const hint = this.shadowRoot.getElementById('hint');
+    const enableMapGestures = () => { this._map.dragging.enable(); this._map.touchZoom.enable(); if (hint) hint.classList.remove('show'); };
+    const disableMapGestures = () => { this._map.dragging.disable(); this._map.touchZoom.disable(); if (hint) hint.classList.add('show'); };
+
+    disableMapGestures();
+
+    const updateByTouches = (n) => { n >= 2 ? enableMapGestures() : disableMapGestures(); };
+
+    container.addEventListener('touchstart', (e) => updateByTouches(e.touches.length), { passive: true });
+    container.addEventListener('touchmove',  (e) => updateByTouches(e.touches.length), { passive: true });
+    container.addEventListener('touchend',   (e) => updateByTouches(e.touches.length), { passive: true });
+    container.addEventListener('touchcancel',(e) => updateByTouches(e.touches.length), { passive: true });
   }
 
   _openRoute() {
-    const LAT = this.lat;
-    const LNG = this.lng;
+    const LAT = this.lat, LNG = this.lng;
     const isAndroid = /Android/i.test(navigator.userAgent);
     const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    if (isIOS) {
-      window.location.href = `maps://?daddr=${LAT},${LNG}&dirflg=d`;
-      return;
-    }
-    if (isAndroid) {
-      window.location.href = `geo:0,0?q=${LAT},${LNG}(Destinazione)`;
-      return;
-    }
+    if (isIOS) return window.location.href = `maps://?daddr=${LAT},${LNG}&dirflg=d`;
+    if (isAndroid) return window.location.href = `geo:0,0?q=${LAT},${LNG}(Destinazione)`;
+
     const choice = window.prompt('Con quale app vuoi aprire il percorso? (google / apple)', 'google');
-    if (choice && choice.toLowerCase().includes('apple')) {
+    if (choice && choice.toLowerCase().includes('apple'))
       window.open(`https://maps.apple.com/?daddr=${LAT},${LNG}`, '_blank', 'noopener');
-    } else {
+    else
       window.open(`https://www.google.com/maps/dir/?api=1&destination=${LAT},${LNG}`, '_blank', 'noopener');
-    }
   }
 
   _ensureLeaflet() {
@@ -142,5 +145,4 @@ class MapCard extends HTMLElement {
     });
   }
 }
-
 customElements.define('map-card', MapCard);
