@@ -68,13 +68,6 @@
               <div class="spacer" aria-hidden="true"></div>
 
               <review-card
-                image="./assets/images/knot.png"
-                title="Manovre Correnti"
-                description="Scopri le basi per gestire le cime e le manovre fondamentali in totale sicurezza."
-                tag="1 ora">
-              </review-card>
-
-              <review-card
                 image="./assets/images/bussola.png"
                 title="Andature"
                 description="Impara a riconoscere e governare le diverse andature a vela, dal lasco alla bolina."
