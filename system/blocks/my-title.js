@@ -24,8 +24,8 @@ class MyTitle extends HTMLElement {
           flex-direction: column;
           align-items: center;
           gap: .5rem;
-          margin: 1.5rem 0;
-          width: 100%;
+          margin: 1.5rem 1rem;
+          
         }
 
         .title {
