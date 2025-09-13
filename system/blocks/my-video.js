@@ -116,6 +116,7 @@ class MyVideo extends HTMLElement {
         <video autoplay muted loop playsinline>
           <source src="${videoSrc}" type="video/mp4">
         </video>
+        <img src="./assets/decorations/waves.svg" alt="">
 
         <div class="overlay">
           <my-title 

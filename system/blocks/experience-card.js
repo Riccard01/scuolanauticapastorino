@@ -3,7 +3,7 @@
 
   class ExperienceCard extends HTMLElement {
     static get observedAttributes() {
-      return ['title','description','price','time','filters','tag','images'];
+      return ['title','description','price','time','filters','tag','images','duration','autoplay'];
     }
 
     constructor() {
@@ -12,6 +12,12 @@
       this._mounted = false;
       this._current = 0;
       this._slides = [];
+      this._duration = 5000; // ms per slide
+      this._autoplay = true;
+      this._raf = null;
+      this._progress = 0; // 0..1 progress of current slide
+      this._lastTick = 0;
+      this._isPaused = false;
       this._render();
     }
 
@@ -22,10 +28,12 @@
       this._updateUI();
       this._observeResize();
       this._initCarousel();
+      this._bindStoryGestures();
     }
 
     disconnectedCallback() {
       if (this._ro) this._ro.disconnect();
+      this._stopAutoplay();
     }
 
     attributeChangedCallback(name, _oldValue, _newValue) {
@@ -33,13 +41,15 @@
       this._readAll();
       this._updateUI();
 
-      // Se cambia l'array immagini, rigeneriamo gli slide
       if (name === 'images') {
         this._applyImages();
         const slot = this.shadowRoot.querySelector('slot');
         this._slides = slot.assignedElements({ flatten:true });
-        this._renderDots();
-        this._show(0);
+        this._renderStoryBars();
+        this._show(0, true);
+      }
+      if (name === 'duration' || name === 'autoplay') {
+        this._syncAutoplayState();
       }
     }
 
@@ -53,12 +63,17 @@
       const raw = this.getAttribute('filters') || this.getAttribute('tag') || '';
       this._filters = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
 
-      // NUOVO: immagini locali (lista di path separati da virgola)
       const imgs = (this.getAttribute('images') || '')
         .split(',')
         .map(s => s.trim())
         .filter(Boolean);
       this._images = imgs;
+
+      const dur = parseInt(this.getAttribute('duration') || '5000', 10);
+      this._duration = Number.isFinite(dur) ? Math.max(1200, dur) : 5000;
+      // autoplay on by default unless explicitly set to "false"
+      const ap = this.getAttribute('autoplay');
+      this._autoplay = ap === null ? true : ap !== 'false';
     }
 
     // --------- template ---------
@@ -81,6 +96,8 @@
             aspect-ratio: 16 / 9;
             height: 450px;
             width: 90%;
+            user-select:none;
+            -webkit-user-select:none;
           }
 
           @media (hover: hover) and (pointer: fine){
@@ -90,7 +107,6 @@
             :host([data-active]){ transform: scale(1.08); }
           }
 
-          /* Glow / ombra interna */
           :host::before{
             content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
             z-index:3; opacity:0; transform:scale(1);
@@ -112,7 +128,6 @@
               inset 0 -16px 32px     rgba(var(--glow-rgb), .32);
           }
 
-          /* Outline */
           :host::after{
             content:""; position:absolute; inset:0; border-radius:inherit; outline:2px solid rgba(255,255,255,.3);
             outline-offset:-2px; mix-blend-mode:overlay; pointer-events:none; z-index:6;
@@ -131,24 +146,7 @@
           .slides{ display:flex; width:100%; height:100%; transition: transform .45s ease; }
           ::slotted(img[slot="slide"]){ flex:0 0 100%; width:100%; height:100%; object-fit:cover; }
 
-          /* frecce minimali */
-          .controls{ position:absolute; top:50%; left:0; right:0; display:flex; justify-content:space-between;
-                     transform:translateY(-50%); z-index:4; pointer-events:none; }
-          .btn{
-            background:rgba(0,0,0,.32);
-            border:1px solid rgba(255,255,255,.35);
-            color:#fff; font-size:18px;
-            width:32px; height:32px; border-radius:50%;
-            cursor:pointer; pointer-events:auto;
-            display:flex; align-items:center; justify-content:center;
-            transition:background .2s ease, opacity .2s ease, border-color .2s ease;
-          }
-          .btn:hover:not([disabled]){ background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.55); }
-          .btn[disabled]{ opacity:.35; cursor:default; }
-
-          * {
-            font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-          }
+          * { font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif); }
 
           /* overlay + feather (ombra interna) */
           .overlay{ position:absolute; inset:0; pointer-events:none; z-index:2;
@@ -160,24 +158,18 @@
 
           .content{ position:absolute; left:0; right:0; bottom:0; display:flex; flex-direction:column; gap:6px; padding:12px; z-index:5; }
 
-          /* --- Dots (stessa logica dell'experiences-gallery) --- */
-          .dots{
-            display:flex; justify-content:center; gap:8px;
-            pointer-events:none; margin-bottom:6px;
-          }
-          .dot{
-            inline-size: 6px; block-size: 6px; border-radius: 999px;
-            background: rgba(255,255,255,.45);
-            transform: scale(1);
-            transition: transform .18s ease, background-color .18s ease, opacity .18s;
-            opacity: .95;
-          }
-          .dot[aria-current="true"]{
-            background:#ffffff;
-            transform: scale(1.25);
-          }
+          /* === Indicatori stile Storie (segmenti progressivi in alto) === */
+          .stories-indicators{ position:absolute; top:16px; left:16px; right:16px; display:flex; gap:6px; z-index:8; }
+          .bar{ position:relative; flex:1 1 0; height:3px; background:rgba(255,255,255,.28); border-radius:999px; overflow:hidden; }
+          .bar > i{ position:absolute; inset:0; transform-origin:left center; transform:scaleX(0); background:#ffffff; opacity:.95; }
+          .bar[aria-current="past"] > i{ transform:scaleX(1); opacity:.9; }
+          .bar[aria-current="active"] > i{ will-change: transform; }
 
-          /* TAG + meta + testi */
+          /* Zone cliccabili tipo storie (sinistra/destra) */
+          .tapzones{ position:absolute; inset:0; z-index:9; display:grid; grid-template-columns:1fr 1fr; }
+          .tapzones > div{ cursor:pointer; }
+          .tapzones > div:active{ background:rgba(0,0,0,.08); }
+
           .filters, .meta{ display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden; margin:0; padding:0; --tag-fs: 11px; }
           .filters{ margin-bottom:2px; }
           .meta{ margin-bottom:4px; }
@@ -194,19 +186,21 @@
         <div class="clip">
           <div class="carousel">
             <div class="slides"><slot name="slide"></slot></div>
-            <div class="controls">
-              <button class="btn" id="prev" aria-label="Immagine precedente">‹</button>
-              <button class="btn" id="next" aria-label="Immagine successiva">›</button>
-            </div>
+          </div>
+
+          <!-- Indicatori Storie -->
+          <div class="stories-indicators" id="stories"></div>
+
+          <!-- Zone tap: sinistra/indietro, destra/avanti -->
+          <div class="tapzones" aria-hidden="true">
+            <div id="tap-left"></div>
+            <div id="tap-right"></div>
           </div>
 
           <div class="overlay"></div>
           <div class="feather"></div>
 
           <div class="content">
-            <!-- Dots prima di tag/titolo -->
-            <div class="dots" id="dots" aria-hidden="true"></div>
-
             <div class="filters" part="filters" hidden></div>
             <div class="meta">
               <span class="pill pill-price" part="price"></span>
@@ -230,9 +224,9 @@
       this.$pillPrice = this.shadowRoot.querySelector('.pill-price');
       this.$pillTime  = this.shadowRoot.querySelector('.pill-time');
       this.$slidesContainer = this.shadowRoot.querySelector('.slides');
-      this.$dots = this.shadowRoot.getElementById('dots');
-      this.$prev = this.shadowRoot.getElementById('prev');
-      this.$next = this.shadowRoot.getElementById('next');
+      this.$stories = this.shadowRoot.getElementById('stories');
+      this.$tapLeft = this.shadowRoot.getElementById('tap-left');
+      this.$tapRight = this.shadowRoot.getElementById('tap-right');
     }
 
     // --------- UI text ---------
@@ -258,21 +252,14 @@
       this.$pillTime.textContent  = this._time;
 
       this._fitRow(this.$filters);
-      // rimosso: this._fitRow(this.$meta); // non esiste $meta
     }
 
     // --------- carosello ---------
     _applyImages() {
       if (!this._images || this._images.length === 0) return;
-
-      // Rimuovi <img> generati in precedenza da noi
       Array.from(this.querySelectorAll('img[slot="slide"][data-generated="true"]')).forEach(el => el.remove());
-
-      // Se lo slot è già popolato manualmente, non tocchiamo nulla
       const already = this.querySelector('img[slot="slide"]');
       if (already) return;
-
-      // Genera gli slide dalle immagini locali
       this._images.forEach(src => {
         const img = document.createElement('img');
         img.slot = 'slide';
@@ -284,13 +271,10 @@
     }
 
     _initCarousel() {
-      // Applica prima le immagini locali se fornite
       this._applyImages();
-
       const slot = this.shadowRoot.querySelector('slot');
       this._slides = slot.assignedElements({ flatten:true });
 
-      // Placeholder se ancora vuoto
       if (this._slides.length === 0) {
         for (let i=0;i<3;i++) {
           const img = document.createElement('img');
@@ -302,48 +286,133 @@
         this._slides = slot.assignedElements({ flatten:true });
       }
 
-      this.$prev.addEventListener('click', () => this._show(this._current - 1));
-      this.$next.addEventListener('click', () => this._show(this._current + 1));
-
-      // Reagisce a cambi slot (es. se cambi images a runtime)
+      // reagisci a cambi slot
       slot.addEventListener('slotchange', () => {
         this._slides = slot.assignedElements({ flatten:true });
-        this._renderDots();
-        this._show(0);
+        this._renderStoryBars();
+        this._show(0, true);
       });
 
-      this._renderDots();
-      this._show(0);
+      this._renderStoryBars();
+      this._show(0, true);
+      this._syncAutoplayState();
     }
 
-    _renderDots(){
-      this.$dots.innerHTML = '';
+    _renderStoryBars(){
+      this.$stories.innerHTML = '';
       for (let i=0;i<this._slides.length;i++){
-        const d = document.createElement('i');
-        d.className = 'dot';
-        if (i === this._current) d.setAttribute('aria-current','true');
-        this.$dots.appendChild(d);
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        if (i < this._current) bar.setAttribute('aria-current','past');
+        else if (i === this._current) bar.setAttribute('aria-current','active');
+        bar.appendChild(document.createElement('i'));
+        this.$stories.appendChild(bar);
       }
     }
 
-    _show(index) {
+    _updateStoryBars(progress = 0){
+      const bars = Array.from(this.$stories.children);
+      bars.forEach((bar, i) => {
+        const fill = bar.firstElementChild;
+        if (i < this._current){
+          bar.setAttribute('aria-current','past');
+          fill.style.transform = 'scaleX(1)';
+        } else if (i === this._current){
+          bar.setAttribute('aria-current','active');
+          fill.style.transform = `scaleX(${Math.max(0, Math.min(1, progress))})`;
+        } else {
+          bar.removeAttribute('aria-current');
+          fill.style.transform = 'scaleX(0)';
+        }
+      });
+    }
+
+    _show(index, jump = false) {
       if (!this._slides.length) return;
-      this._current = Math.max(0, Math.min(index, this._slides.length - 1));
+      const clamped = Math.max(0, Math.min(index, this._slides.length - 1));
+      this._current = clamped;
       this.$slidesContainer.style.transform = `translateX(-${this._current * 100}%)`;
-      this._updateControls();
-      this._updateDots();
+      this._progress = 0;
+      this._lastTick = 0;
+      this._updateStoryBars(0);
+      if (!jump) this._restartAutoplay();
+      else this._restartAutoplay(true);
     }
 
-    _updateControls(){
-      this.$prev.disabled = this._current === 0;
-      this.$next.disabled = this._current === this._slides.length - 1;
+    // --------- Stile "storie": autoplay + pause su pressione/hover ---------
+    _tick = (ts) => {
+      if (this._isPaused) { this._lastTick = ts; this._raf = requestAnimationFrame(this._tick); return; }
+      if (!this._lastTick) this._lastTick = ts;
+      const delta = ts - this._lastTick;
+      this._lastTick = ts;
+      this._progress += delta / this._duration;
+      if (this._progress >= 1) {
+        if (this._current < this._slides.length - 1) {
+          this._show(this._current + 1, true);
+        } else {
+          // restart from first
+          this._show(0, true);
+        }
+      } else {
+        this._updateStoryBars(this._progress);
+        this._raf = requestAnimationFrame(this._tick);
+      }
     }
 
-    _updateDots(){
-      const dots = Array.from(this.$dots.children);
-      dots.forEach((el, i) => {
-        if (i === this._current) el.setAttribute('aria-current','true');
-        else el.removeAttribute('aria-current');
+    _startAutoplay(){
+      if (!this._autoplay) return;
+      if (this._raf) cancelAnimationFrame(this._raf);
+      this._raf = requestAnimationFrame(this._tick);
+    }
+
+    _stopAutoplay(){
+      if (this._raf) cancelAnimationFrame(this._raf);
+      this._raf = null;
+    }
+
+    _restartAutoplay(immediate = false){
+      this._stopAutoplay();
+      this._progress = 0;
+      this._lastTick = 0;
+      if (immediate) this._startAutoplay();
+      else setTimeout(() => this._startAutoplay(), 0);
+    }
+
+    _pauseAutoplay(){ this._isPaused = true; }
+    _resumeAutoplay(){ this._isPaused = false; }
+
+    _syncAutoplayState(){
+      if (this._autoplay) this._restartAutoplay(true);
+      else this._stopAutoplay();
+    }
+
+    _bindStoryGestures(){
+      // Tap/click zones
+      const back = () => {
+        if (this._progress > 0.1) { // se già iniziata, riparti da inizio slide
+          this._progress = 0; this._updateStoryBars(0);
+        } else {
+          this._show(this._current - 1);
+        }
+      };
+      const next = () => this._show(this._current + 1);
+
+      this.$tapLeft.addEventListener('click', back);
+      this.$tapRight.addEventListener('click', next);
+
+      // Press & hold per mettere in pausa (mouse + touch)
+      const onDown = () => this._pauseAutoplay();
+      const onUp = () => this._resumeAutoplay();
+
+      ['mousedown','touchstart','pointerdown'].forEach(ev => this.addEventListener(ev, onDown));
+      ['mouseup','touchend','touchcancel','pointerup','pointercancel','mouseleave'].forEach(ev => this.addEventListener(ev, onUp));
+
+      // tastiera
+      this.setAttribute('tabindex','0');
+      this.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') back();
+        if (e.key === 'ArrowRight') next();
+        if (e.key === ' '){ e.preventDefault(); this._isPaused ? this._resumeAutoplay() : this._pauseAutoplay(); }
       });
     }
 
