@@ -80,6 +80,7 @@
             will-change: transform;
             aspect-ratio: 16 / 9;
             height: 450px;
+            width: 90%;
           }
 
           @media (hover: hover) and (pointer: fine){
