@@ -24,7 +24,7 @@ class MyTitle extends HTMLElement {
           flex-direction: column;
           align-items: center;
           gap: .5rem;
-          margin: 1.5rem 1rem;
+          margin: 3rem 1rem;
           
         }
 

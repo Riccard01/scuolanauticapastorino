@@ -18,17 +18,16 @@
 
   <!-- Componenti (ordine: dipendenze -> chi li usa) -->
   <script src="./system/blocks/ds-button.js" defer></script>
-  <script src="./system/blocks/story-badge.js" defer></script>
   <script src="./system/blocks/experience-card.js" defer></script>
   <script src="./system/blocks/experiences-gallery.js" defer></script>
   <script src="./system/blocks/review-card.js" defer></script>
   <script src="./system/blocks/reviews-gallery.js" defer></script>
-  <script src="./system/blocks/booking-ticket.js" defer></script>
   <script src="./system/blocks/booking-calendar.js" defer></script>
   <script src="./system/blocks/whatsapp-card.js" defer></script>
   <script src="./system/blocks/map-card.js" defer></script>
   <script src="./system/blocks/my-title.js" defer></script>
   <script src="./system/blocks/my-video.js" defer></script>
+  <script src="./system/blocks/my-list.js" defer></script>
 </head>
 <body>
 
@@ -42,11 +41,42 @@
 <section style="widht: 0; height: 0;" id="la-nostra-flotta"></section>
 
   
-  <my-title 
+<my-title 
   title="Programma del corso" 
   subtitle="Dalle basi della vela alle manovre avanzate, un percorso completo passo passo.">
 </my-title>
-<reviews-gallery></reviews-gallery>
+
+<div class="list-wrapper" style="display:flex; flex-direction: column; gap: 2rem;">
+<my-list>
+  <img slot="image" src="./assets/images/bussola.png" alt="Bussola">
+  <h3 slot="title" class="title">Andature</h3>
+  <p slot="description" class="desc">Impara a riconoscere e governare le diverse andature a vela, dal lasco alla bolina.</p>
+  <span slot="tag" class="tag">2 ore</span>
+  <!-- azioni opzionali -->
+  <!-- <ds-button slot="action" variant="overlay" size="sm"><span slot="text">Dettagli</span></ds-button> -->
+</my-list>
+
+<my-list>
+  <img slot="image" src="./assets/images/winch.png" alt="Winch">
+  <h3 slot="title" class="title">Manovre di Evoluzione</h3>
+  <p slot="description" class="desc">Approfondisci virate e strambate per condurre l’imbarcazione con agilità.</p>
+  <span slot="tag" class="tag">5 ore</span>
+</my-list>
+
+<my-list>
+  <img slot="image" src="./assets/images/galloccia.png" alt="Winch">
+  <h3 slot="title" class="title">Ormeggio e disormeggio</h3>
+  <p slot="description" class="desc">Tecniche pratiche per entrare e uscire dal porto in sicurezza e senza stress.</p>
+  <span slot="tag" class="tag">2 ore</span>
+</my-list>
+</div>
+
+
+
+
+
+
+
 
 <my-title 
 title="La nostra flotta" 

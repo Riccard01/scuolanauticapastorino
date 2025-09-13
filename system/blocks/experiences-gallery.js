@@ -94,7 +94,7 @@
           }
 
           @media (min-width: 501px){
-            .scroller { padding-top: var(--pad-top-desktop); }
+            
           }
 
           /* Entrata iniziale delle card */
