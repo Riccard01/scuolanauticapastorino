@@ -79,7 +79,7 @@ class MyVideo extends HTMLElement {
           left: 0;
           right: 0;
           bottom: -2px;
-          width: 100%;
+          width: 100vw;
           height: auto;
           display: block;
           pointer-events: none;
