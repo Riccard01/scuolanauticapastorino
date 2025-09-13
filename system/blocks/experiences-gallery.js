@@ -28,8 +28,8 @@
 
             /* padding separati */
             --pad-inline: 16px;
-            --pad-top: 2rem;
-            --pad-bottom: 5rem;
+            --pad-top: 0rem;
+            --pad-bottom: 4rem;
             --pad-top-desktop: 3rem;
 
             display: block;
